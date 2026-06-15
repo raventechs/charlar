@@ -431,6 +431,7 @@ button,input,select,textarea{font-family:var(--font)}
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 <script>
+document.addEventListener("DOMContentLoaded",function(){
 const FB={
   apiKey:"AIzaSyBlftKE_pqK6afzv1pe8PS58sYlb2Z93Uk",
   authDomain:"charlar-e5408.firebaseapp.com",
@@ -1137,5 +1138,7 @@ function msgHTML(m){
     <div class="msg-time">${m.time||""}</div>
   </div>`;
 }
-
-
+}); // DOMContentLoaded
+</script>
+</body>
+</html>
