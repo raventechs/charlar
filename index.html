@@ -450,19 +450,16 @@ const db=firebase.firestore();
 // Adaptar API compat a las funciones que usa el código
 const {GoogleAuthProvider,signInWithPopup,signInWithEmailAndPassword,
        createUserWithEmailAndPassword,onAuthStateChanged,signOut}=firebase.auth;
-function collection(d,...p){return d.collection(p.join("/"));}
-function doc(d,...p){
-  // Construye referencia Firestore compat desde path segments
-  // p puede ser ["col","docId"] o ["col","docId","subcol","subDocId"] etc.
-  const parts=p.join("/").split("/");
-  let ref=d;
+function _buildRef(base,parts){
+  let ref=base;
   for(let i=0;i<parts.length;i++){
     if(i%2===0)ref=ref.collection(parts[i]);
     else ref=ref.doc(parts[i]);
   }
-  // Si termina en collection (longitud impar), devolver el último doc visto
   return ref;
 }
+function collection(d,...p){return _buildRef(d,p.join("/").split("/"));}
+function doc(d,...p){return _buildRef(d,p.join("/").split("/"));}
 function query(ref){return ref;}
 function orderBy(f,d="asc"){return{field:f,dir:d};}
 function where(f,op,v){return{field:f,op,val:v};}
@@ -640,7 +637,7 @@ auth.onAuthStateChanged(async user=>{
     me=user;
     const userRef=doc(db,"usuarios",user.uid);
     const snap=await getDoc(userRef);
-    if(!snap.exists()){
+    if(!snap.exists){
       await setDoc(userRef,{
         uid:user.uid,email:user.email,banned:false,
         status:"demo",demoStart:serverTimestamp(),
@@ -651,7 +648,7 @@ auth.onAuthStateChanged(async user=>{
     if(userDoc.banned){toast("Cuenta suspendida","err");await auth.signOut();return;}
     // Cargar compañero y datos
     const compSnap=await getDoc(doc(db,"usuarios",user.uid,"config","companion"));
-    if(compSnap.exists()){
+    if(compSnap.exists){
       companion=compSnap.data();
       await loadUserData();
       showScreen("screen-app");
