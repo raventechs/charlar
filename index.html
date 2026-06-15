@@ -427,12 +427,11 @@ button,input,select,textarea{font-family:var(--font)}
 
 <div id="toast-wrap"></div>
 
-<script type="module">
-import{initializeApp}from"https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import{getAuth,createUserWithEmailAndPassword,signInWithEmailAndPassword,onAuthStateChanged,signOut,GoogleAuthProvider,signInWithPopup}from"https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
-import{getFirestore,collection,doc,setDoc,getDoc,addDoc,getDocs,updateDoc,deleteDoc,query,where,orderBy,serverTimestamp,Timestamp}from"https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
-
-// 🔧 FIREBASE CONFIG — reemplazar con los datos del proyecto CharlAR
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<script>
+// 🔧 FIREBASE CONFIG
 const FB={
   apiKey:"AIzaSyBlftKE_pqK6afzv1pe8PS58sYlb2Z93Uk",
   authDomain:"charlar-e5408.firebaseapp.com",
@@ -444,9 +443,45 @@ const FB={
 const ADMIN_PIN="1990";
 const DEMO_MS=24*60*60*1000;
 
-const fbApp=initializeApp(FB);
-const auth=getAuth(fbApp);
-const db=getFirestore(fbApp);
+firebase.initializeApp(FB);
+const auth=firebase.auth();
+const db=firebase.firestore();
+
+// Adaptar API compat a las funciones que usa el código
+const {GoogleAuthProvider,signInWithPopup,signInWithEmailAndPassword,
+       createUserWithEmailAndPassword,onAuthStateChanged,signOut}=firebase.auth;
+function collection(d,...p){return d.collection(p.join("/"));}
+function doc(d,...p){
+  // Construye referencia Firestore compat desde path segments
+  // p puede ser ["col","docId"] o ["col","docId","subcol","subDocId"] etc.
+  const parts=p.join("/").split("/");
+  let ref=d;
+  for(let i=0;i<parts.length;i++){
+    if(i%2===0)ref=ref.collection(parts[i]);
+    else ref=ref.doc(parts[i]);
+  }
+  // Si termina en collection (longitud impar), devolver el último doc visto
+  return ref;
+}
+function query(ref){return ref;}
+function orderBy(f,d="asc"){return{field:f,dir:d};}
+function where(f,op,v){return{field:f,op,val:v};}
+async function setDoc(ref,data,opts={}){
+  if(opts.merge)return ref.set(data,{merge:true});
+  return ref.set(data);
+}
+async function getDoc(ref){return ref.get();}
+async function addDoc(ref,data){return ref.add(data);}
+async function getDocs(ref){return ref.get();}
+async function updateDoc(ref,data){return ref.update(data);}
+async function deleteDoc(ref){return ref.delete();}
+function serverTimestamp(){return firebase.firestore.FieldValue.serverTimestamp();}
+class Timestamp{static fromDate(d){return firebase.firestore.Timestamp.fromDate(d);}}
+
+// Adaptar métodos de auth
+const _ga=firebase.auth;
+firebase.auth=()=>auth;
+Object.assign(firebase.auth,_ga);
 
 // ── ESTADO ────────────────────────────────────────────────
 let me=null,userDoc=null,companion=null;
@@ -597,10 +632,10 @@ function checkDemo(){
   cd.textContent="⏱ "+(h>0?h+"h "+m+"m":m+"m");
   document.querySelector(".header-right")?.prepend(cd);
 }
-document.getElementById("btn-demo-logout").addEventListener("click",()=>signOut(auth));
+document.getElementById("btn-demo-logout").addEventListener("click",()=>auth.signOut());
 
 // ── AUTH STATE ────────────────────────────────────────────
-onAuthStateChanged(auth,async user=>{
+auth.onAuthStateChanged(async user=>{
   if(user){
     me=user;
     const userRef=doc(db,"usuarios",user.uid);
@@ -613,7 +648,7 @@ onAuthStateChanged(auth,async user=>{
       });
     }
     userDoc=(await getDoc(userRef)).data();
-    if(userDoc.banned){toast("Cuenta suspendida","err");await signOut(auth);return;}
+    if(userDoc.banned){toast("Cuenta suspendida","err");await auth.signOut();return;}
     // Cargar compañero y datos
     const compSnap=await getDoc(doc(db,"usuarios",user.uid,"config","companion"));
     if(compSnap.exists()){
@@ -648,8 +683,8 @@ document.getElementById("btn-auth").addEventListener("click",async()=>{
   if(!email||!pass){errEl.textContent="Completá todos los campos";errEl.style.display="block";errEl.classList.add("show");return;}
   const btn=document.getElementById("btn-auth");btn.disabled=true;btn.textContent=isRegister?"Creando...":"Ingresando...";
   try{
-    if(isRegister)await createUserWithEmailAndPassword(auth,email,pass);
-    else await signInWithEmailAndPassword(auth,email,pass);
+    if(isRegister)await auth.createUserWithEmailAndPassword(email,pass);
+    else await auth.signInWithEmailAndPassword(email,pass);
   }catch(e){
     const msgs={"auth/user-not-found":"No existe cuenta con ese email.","auth/wrong-password":"Contraseña incorrecta.","auth/email-already-in-use":"Ya existe cuenta con ese email.","auth/weak-password":"Mínimo 6 caracteres.","auth/invalid-credential":"Email o contraseña incorrectos."};
     errEl.textContent=msgs[e.code]||"Error. Intentá de nuevo.";
@@ -659,11 +694,11 @@ document.getElementById("btn-auth").addEventListener("click",async()=>{
 });
 document.getElementById("btn-google").addEventListener("click",async()=>{
   const btn=document.getElementById("btn-google");btn.disabled=true;btn.textContent="Conectando...";
-  try{const provider=new GoogleAuthProvider();await signInWithPopup(auth,provider);}
+  try{const provider=new firebase.auth.GoogleAuthProvider();await auth.signInWithPopup(provider);}
   catch(e){const errEl=document.getElementById("auth-err");errEl.textContent="Error con Google. Intentá de nuevo.";errEl.style.display="block";errEl.classList.add("show");}
   btn.disabled=false;btn.textContent="Entrar con Google";
 });
-document.getElementById("btn-logout").addEventListener("click",()=>signOut(auth));
+document.getElementById("btn-logout").addEventListener("click",()=>auth.signOut());
 document.getElementById("btn-theme").addEventListener("click",toggleTheme);
 
 // ── SETUP ─────────────────────────────────────────────────
@@ -1153,51 +1188,6 @@ async function sendMessage(text){
   else await sendTextMessage(text);
 }
 
-async function sendMessage(text){
-  if(!text.trim())return;
-  const input=document.getElementById("chat-input");
-  if(input)input.value="";
-  chatHistory.push({role:"user",content:text,time:fmtHora()});
-  renderChat();
-  // Mostrar typing
-  const msgs=document.getElementById("chat-messages");
-  const typing=document.createElement("div");
-  typing.className="msg ai";
-  typing.id="typing-indicator";
-  typing.innerHTML=`<div class="msg-avatar">${companion?.avatar||"💗"}</div><div class="typing-bubble"><div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div></div>`;
-  msgs?.appendChild(typing);
-  msgs.scrollTop=msgs.scrollHeight;
-  try{
-    const persData=PERSONALIDADES[companion?.personalidad||"calida"];
-    const systemPrompt=`Sos ${companion?.nombre||"una compañera digital"}, una compañía digital para adultos mayores. ${persData.prompt}
-Hablás siempre en español argentino, con palabras simples y claras. Nunca usás tecnicismos. Sos breve pero cálido/a: respuestas de 2 a 4 oraciones como máximo. 
-Recordá que la persona puede estar sola y necesita sentirse acompañada. Si menciona estar triste o con dolor, expresás empatía genuina y sugerís hablar con un familiar o médico de confianza.
-NUNCA des consejos médicos específicos. Si la persona menciona una emergencia, indicale que llame al 107 (SAME) o al 911.`;
-    const messages=[
-      ...chatHistory.slice(-10).map(m=>({role:m.role==="ai"?"assistant":"user",content:m.content}))
-    ];
-    const res=await fetch("https://api.anthropic.com/v1/messages",{
-      method:"POST",
-      headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({
-        model:"claude-sonnet-4-6",
-        max_tokens:1000,
-        system:systemPrompt,
-        messages
-      })
-    });
-    const data=await res.json();
-    const reply=data.content?.[0]?.text||"No pude responder, intentá de nuevo.";
-    typing.remove();
-    chatHistory.push({role:"ai",content:reply,time:fmtHora()});
-    renderChat();
-  }catch(e){
-    typing.remove();
-    chatHistory.push({role:"ai",content:"Tuve un problema para responder. ¿Podés intentarlo de nuevo?",time:fmtHora()});
-    renderChat();
-  }
-}
-
 // ── ÁNIMO ─────────────────────────────────────────────────
 function renderSalud(){
   const el=document.getElementById("page-salud");
@@ -1288,7 +1278,7 @@ function renderPerfil(){
     </div>
     <button class="btn-danger" id="btn-logout-perfil" style="margin-top:8px">⏻ Cerrar sesión</button>`;
 
-  el.querySelector("#btn-logout-perfil")?.addEventListener("click",()=>signOut(auth));
+  el.querySelector("#btn-logout-perfil")?.addEventListener("click",()=>auth.signOut());
   el.querySelector("#btn-reconfigurar")?.addEventListener("click",()=>showScreen("screen-setup"));
 }
 
