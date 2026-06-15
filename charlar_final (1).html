@@ -1,0 +1,1298 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>CharlAR</title>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet"/>
+<style>
+:root{
+  --coral:#E8634A;--coral2:#C94D33;
+  --warm:#FFF8F5;--warm2:#FDEEE8;
+  --navy:#1A2744;--navy2:#263460;
+  --gold:#F5A623;--gold2:#D4891A;
+  --green:#2E9E6B;--green-bg:#E8F8F0;
+  --red:#DC3545;--red-bg:#FDEAEA;
+  --purple:#7B5EA7;--purple-bg:#F0EBF8;
+  --border:#E8D8D0;--text:#2C1810;--muted:#8B6B60;
+  --surface:#FFFFFF;--bg:#FFF8F5;
+  --shadow:0 3px 12px rgba(232,99,74,.12);
+  --shadow-md:0 6px 24px rgba(232,99,74,.18);
+  --font:'Nunito',sans-serif;--radius:18px;--radius-sm:12px;
+}
+[data-theme="dark"]{
+  --warm:#1A1210;--warm2:#241815;--bg:#1A1210;--surface:#2A1E1A;
+  --border:#3D2820;--text:#F5EDE8;--muted:#A08878;
+  --shadow:0 3px 12px rgba(0,0,0,.3);
+  --green-bg:#0D2E1F;--red-bg:#2E1010;--purple-bg:#1E1530;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--font);font-size:18px;line-height:1.5;transition:background .2s,color .2s}
+button,input,select,textarea{font-family:var(--font)}
+@keyframes fadeUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
+@keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.04)}}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+
+/* ══ SCREENS ══════════════════════════════════════════════ */
+.screen{display:none;min-height:100vh;flex-direction:column}
+.screen.active{display:flex}
+#screen-login.active{align-items:center;justify-content:center;background:linear-gradient(160deg,var(--coral) 0%,#C94D33 50%,#A03020 100%);padding:24px;min-height:100vh}
+#screen-setup.active{align-items:center;justify-content:center;background:var(--bg);padding:24px}
+
+/* ══ LOGIN ═════════════════════════════════════════════════ */
+.login-hero{text-align:center;margin-bottom:32px;animation:fadeUp .5s ease both}
+.login-heart{font-size:72px;display:block;margin-bottom:12px;animation:pulse 2s ease-in-out infinite}
+.login-title{font-size:36px;font-weight:900;color:#fff;letter-spacing:-.5px;margin-bottom:6px}
+.login-sub{font-size:18px;color:rgba(255,255,255,.8);font-weight:600}
+.login-card{background:#fff;border-radius:28px;padding:36px 28px;width:100%;max-width:400px;box-shadow:0 24px 64px rgba(0,0,0,.25);animation:fadeUp .5s ease .1s both}
+.login-card-title{font-size:22px;font-weight:800;color:var(--navy);margin-bottom:24px;text-align:center}
+.field{margin-bottom:18px}
+.field label{display:block;font-size:16px;font-weight:700;color:var(--navy);margin-bottom:8px}
+.field input,.field select{width:100%;background:#F8F4F2;border:2.5px solid #E8D8D0;border-radius:var(--radius-sm);padding:16px 18px;color:var(--navy);font-size:17px;outline:none;transition:border-color .2s}
+.field input:focus,.field select:focus{border-color:var(--coral)}
+.field input::placeholder{color:#B8A8A0}
+.btn-primary{width:100%;padding:18px;background:var(--coral);color:#fff;border:none;border-radius:var(--radius-sm);font-size:18px;font-weight:800;cursor:pointer;box-shadow:0 5px 0 var(--coral2);transition:transform .1s,box-shadow .1s;margin-top:4px}
+.btn-primary:active{transform:translateY(3px);box-shadow:0 2px 0 var(--coral2)}
+.btn-primary:disabled{opacity:.5;cursor:default}
+.btn-google{width:100%;padding:16px;background:#fff;color:#2C1810;border:2.5px solid #E8D8D0;border-radius:var(--radius-sm);font-size:17px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:16px;transition:border-color .2s}
+.btn-google:hover{border-color:var(--coral)}
+.auth-divider{display:flex;align-items:center;gap:12px;margin-bottom:16px}
+.auth-divider-line{flex:1;height:1.5px;background:#E8D8D0}
+.auth-divider-text{font-size:14px;color:#B8A8A0;font-weight:600}
+.auth-toggle{text-align:center;font-size:16px;color:#8B6B60;margin-top:16px}
+.auth-toggle span{color:var(--coral);cursor:pointer;font-weight:700}
+.auth-err{background:#FDEAEA;color:#C0392B;border:2px solid #F5C6CB;border-radius:var(--radius-sm);padding:12px 16px;font-size:15px;margin-bottom:14px;display:none;font-weight:600}
+.auth-err.show{display:block}
+
+/* ══ SETUP ═════════════════════════════════════════════════ */
+.setup-card{background:var(--surface);border-radius:28px;padding:36px 28px;width:100%;max-width:440px;box-shadow:var(--shadow-md);animation:fadeUp .4s ease both}
+.setup-title{font-size:26px;font-weight:900;color:var(--navy);margin-bottom:6px;text-align:center}
+.setup-sub{font-size:16px;color:var(--muted);text-align:center;margin-bottom:28px}
+.avatar-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:6px}
+.avatar-opt{padding:12px;border:2.5px solid var(--border);border-radius:14px;font-size:30px;text-align:center;cursor:pointer;transition:all .2s}
+.avatar-opt.sel{border-color:var(--coral);background:var(--warm2)}
+.personality-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.pers-opt{padding:14px 10px;border:2.5px solid var(--border);border-radius:14px;text-align:center;cursor:pointer;transition:all .2s;background:var(--surface)}
+.pers-opt.sel{border-color:var(--coral);background:var(--warm2)}
+.pers-icon{font-size:28px;margin-bottom:4px}
+.pers-label{font-size:14px;font-weight:700;color:var(--text)}
+.pers-desc{font-size:12px;color:var(--muted);margin-top:2px}
+
+/* ══ APP HEADER ════════════════════════════════════════════ */
+.app-header{background:var(--coral);padding:16px 20px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
+.header-brand{display:flex;align-items:center;gap:10px;cursor:pointer;user-select:none}
+.header-brand-icon{font-size:28px}
+.header-brand-name{font-size:22px;font-weight:900;color:#fff;letter-spacing:-.3px}
+.header-right{display:flex;align-items:center;gap:8px}
+.icon-btn{background:rgba(255,255,255,.2);border:none;color:#fff;width:44px;height:44px;border-radius:12px;cursor:pointer;font-size:20px;display:flex;align-items:center;justify-content:center;transition:background .2s}
+.icon-btn:hover{background:rgba(255,255,255,.35)}
+
+/* ══ BOTTOM NAV ════════════════════════════════════════════ */
+.bottom-nav{background:var(--surface);border-top:2px solid var(--border);display:flex;position:fixed;bottom:0;left:0;right:0;z-index:100;transition:background .2s}
+.nav-item{flex:1;display:flex;flex-direction:column;align-items:center;padding:12px 4px 10px;font-size:12px;font-weight:700;color:var(--muted);cursor:pointer;gap:4px;transition:color .2s}
+.nav-item.active{color:var(--coral)}
+.nav-icon{font-size:26px}
+
+/* ══ MAIN ══════════════════════════════════════════════════ */
+.app-body{flex:1;overflow-y:auto;padding-bottom:80px}
+.page{padding:20px;display:none;animation:fadeUp .3s ease both}
+.page.active{display:block}
+
+/* ══ COMPANION CARD ════════════════════════════════════════ */
+.companion-banner{background:linear-gradient(135deg,var(--coral),#C94D33);border-radius:var(--radius);padding:22px 20px;margin-bottom:20px;display:flex;align-items:center;gap:16px;box-shadow:var(--shadow-md)}
+.companion-avatar{width:68px;height:68px;border-radius:50%;background:rgba(255,255,255,.2);border:3px solid rgba(255,255,255,.4);display:flex;align-items:center;justify-content:center;font-size:34px;flex-shrink:0}
+.companion-name{font-size:22px;font-weight:900;color:#fff;margin-bottom:2px}
+.companion-status{font-size:15px;color:rgba(255,255,255,.85);font-weight:600}
+.companion-dot{width:10px;height:10px;background:#4AE8A0;border-radius:50%;display:inline-block;margin-right:6px;animation:blink 2s ease infinite}
+
+/* ══ ESTADO ÁNIMO ══════════════════════════════════════════ */
+.mood-title{font-size:20px;font-weight:800;color:var(--text);margin-bottom:14px}
+.mood-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:20px}
+.mood-btn{padding:14px 4px;border:2.5px solid var(--border);border-radius:14px;text-align:center;cursor:pointer;transition:all .2s;background:var(--surface)}
+.mood-btn.sel{border-color:var(--coral);background:var(--warm2);transform:scale(1.08)}
+.mood-emoji{font-size:30px;display:block;margin-bottom:4px}
+.mood-label{font-size:11px;font-weight:700;color:var(--muted)}
+.mood-btn.sel .mood-label{color:var(--coral)}
+.mood-history{display:flex;flex-direction:column;gap:8px}
+.mood-row{background:var(--surface);border:1.5px solid var(--border);border-radius:var(--radius-sm);padding:12px 16px;display:flex;align-items:center;justify-content:space-between;box-shadow:var(--shadow)}
+.mood-row-date{font-size:14px;color:var(--muted);font-weight:600}
+.mood-row-val{font-size:22px}
+
+/* ══ MEDICAMENTOS ══════════════════════════════════════════ */
+.med-day-title{font-size:20px;font-weight:800;color:var(--text);margin-bottom:14px}
+.med-check-item{display:flex;align-items:center;gap:14px;background:var(--surface);border:2.5px solid var(--border);border-radius:var(--radius);padding:18px 16px;margin-bottom:10px;cursor:pointer;transition:all .2s;box-shadow:var(--shadow)}
+.med-check-item.done{border-color:var(--green);background:var(--green-bg)}
+.med-circle{width:36px;height:36px;border-radius:50%;border:3px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;transition:all .2s}
+.med-check-item.done .med-circle{background:var(--green);border-color:var(--green);color:#fff}
+.med-check-name{font-size:17px;font-weight:700;color:var(--text)}
+.med-check-item.done .med-check-name{color:var(--green)}
+.med-check-hora{font-size:14px;color:var(--muted);margin-top:2px}
+.med-chip{background:var(--navy);color:#fff;font-size:13px;font-weight:700;padding:4px 12px;border-radius:99px;flex-shrink:0}
+.med-check-item.done .med-chip{background:var(--green)}
+.btn-add-med{width:100%;padding:18px;background:var(--surface);border:2.5px dashed var(--border);border-radius:var(--radius);font-size:17px;font-weight:700;color:var(--muted);cursor:pointer;margin-top:6px;transition:all .2s}
+.btn-add-med:hover{border-color:var(--coral);color:var(--coral)}
+
+/* ══ CHAT ══════════════════════════════════════════════════ */
+.chat-wrap{display:flex;flex-direction:column;height:calc(100vh - 140px)}
+.chat-messages{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:14px;padding-bottom:20px}
+.msg{max-width:82%;animation:fadeUp .3s ease both}
+.msg.user{align-self:flex-end}
+.msg.ai{align-self:flex-start}
+.msg-bubble{padding:16px 20px;border-radius:22px;font-size:17px;line-height:1.55;font-weight:600}
+.msg.user .msg-bubble{background:var(--coral);color:#fff;border-bottom-right-radius:6px}
+.msg.ai .msg-bubble{background:var(--surface);border:2px solid var(--border);color:var(--text);border-bottom-left-radius:6px;box-shadow:var(--shadow)}
+.msg-avatar{width:36px;height:36px;border-radius:50%;background:var(--warm2);border:2px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:18px;margin-bottom:4px;flex-shrink:0}
+.msg-time{font-size:12px;color:var(--muted);margin-top:4px;font-weight:600}
+.msg.user .msg-time{text-align:right}
+.typing-bubble{background:var(--surface);border:2px solid var(--border);border-radius:22px;border-bottom-left-radius:6px;padding:14px 18px;display:flex;gap:5px;align-items:center;box-shadow:var(--shadow)}
+.typing-dot{width:8px;height:8px;background:var(--muted);border-radius:50%;animation:blink 1s ease infinite}
+.typing-dot:nth-child(2){animation-delay:.2s}
+.typing-dot:nth-child(3){animation-delay:.4s}
+.chat-input-wrap{padding:12px 16px;background:var(--surface);border-top:2px solid var(--border);display:flex;gap:10px;align-items:flex-end;position:sticky;bottom:70px}
+.chat-input{flex:1;background:var(--bg);border:2.5px solid var(--border);border-radius:var(--radius-sm);padding:14px 16px;font-size:17px;color:var(--text);outline:none;resize:none;max-height:120px;line-height:1.4;transition:border-color .2s;font-family:var(--font);font-weight:600}
+.chat-input:focus{border-color:var(--coral)}
+.chat-send-btn{width:52px;height:52px;background:var(--coral);border:none;border-radius:14px;color:#fff;font-size:24px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;box-shadow:0 4px 0 var(--coral2);transition:transform .1s}
+.chat-send-btn:active{transform:translateY(2px)}
+.chat-send-btn:disabled{opacity:.4;cursor:default}
+.quick-replies{display:flex;gap:8px;overflow-x:auto;padding:10px 16px 0;scrollbar-width:none}
+.quick-replies::-webkit-scrollbar{display:none}
+.quick-btn{flex-shrink:0;padding:10px 16px;background:var(--warm2);border:2px solid var(--coral);border-radius:99px;font-size:14px;font-weight:700;color:var(--coral);cursor:pointer;transition:all .2s;white-space:nowrap}
+.quick-btn:hover{background:var(--coral);color:#fff}
+
+/* ══ PERFIL ════════════════════════════════════════════════ */
+.perfil-companion{background:linear-gradient(135deg,var(--coral),#C94D33);border-radius:var(--radius);padding:24px 20px;margin-bottom:20px;text-align:center}
+.perfil-av{width:80px;height:80px;border-radius:50%;background:rgba(255,255,255,.2);border:3px solid rgba(255,255,255,.4);display:flex;align-items:center;justify-content:center;font-size:40px;margin:0 auto 12px}
+.perfil-comp-name{font-size:24px;font-weight:900;color:#fff;margin-bottom:4px}
+.perfil-comp-pers{font-size:15px;color:rgba(255,255,255,.8);font-weight:600}
+.perfil-section{background:var(--surface);border:1.5px solid var(--border);border-radius:var(--radius);padding:18px 20px;margin-bottom:14px;box-shadow:var(--shadow)}
+.perfil-section-title{font-size:16px;font-weight:800;color:var(--text);margin-bottom:14px}
+.perfil-row{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1.5px solid var(--border)}
+.perfil-row:last-child{border-bottom:none}
+.perfil-label{font-size:16px;color:var(--muted);font-weight:600}
+.perfil-val{font-size:16px;font-weight:700;color:var(--text)}
+.btn-danger{width:100%;padding:16px;background:var(--red-bg);color:var(--red);border:2px solid #F5C6CB;border-radius:var(--radius-sm);font-size:17px;font-weight:700;cursor:pointer;margin-top:6px}
+.btn-outline{width:100%;padding:16px;background:transparent;color:var(--coral);border:2.5px solid var(--coral);border-radius:var(--radius-sm);font-size:17px;font-weight:700;cursor:pointer;margin-top:10px;transition:all .2s}
+.btn-outline:hover{background:var(--coral);color:#fff}
+
+/* ══ CARDS STATS ═══════════════════════════════════════════ */
+.card{background:var(--surface);border:1.5px solid var(--border);border-radius:var(--radius);padding:18px 20px;margin-bottom:14px;box-shadow:var(--shadow)}
+.card-title{font-size:17px;font-weight:800;color:var(--text);margin-bottom:12px}
+.stat-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:16px}
+.stat-box{background:var(--warm2);border-radius:var(--radius-sm);padding:16px;text-align:center}
+.stat-num{font-size:28px;font-weight:900;color:var(--coral);line-height:1;margin-bottom:4px}
+.stat-lbl{font-size:13px;font-weight:700;color:var(--muted)}
+
+/* ══ MODAL ═════════════════════════════════════════════════ */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);display:none;align-items:flex-end;justify-content:center;z-index:500}
+.modal-overlay.open{display:flex}
+@media(min-width:600px){.modal-overlay{align-items:center}}
+.modal{background:var(--surface);border-radius:28px 28px 0 0;padding:28px 24px 40px;width:100%;max-width:480px;max-height:90vh;overflow-y:auto}
+@media(min-width:600px){.modal{border-radius:28px}}
+.modal-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px}
+.modal-title{font-size:20px;font-weight:800;color:var(--text)}
+.modal-close{width:38px;height:38px;background:var(--bg);border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:18px;color:var(--muted);border:none}
+.modal-footer{display:flex;gap:10px;margin-top:20px}
+.btn-cancel{flex:1;padding:14px;background:var(--bg);border:2px solid var(--border);border-radius:var(--radius-sm);font-size:16px;font-weight:700;color:var(--muted);cursor:pointer}
+.btn-save{flex:1;padding:14px;background:var(--coral);color:#fff;border:none;border-radius:var(--radius-sm);font-size:16px;font-weight:700;cursor:pointer;box-shadow:0 4px 0 var(--coral2)}
+
+/* ══ ADMIN ═════════════════════════════════════════════════ */
+#screen-admin.active{flex-direction:column;background:var(--bg)}
+.admin-header{background:#7c3aed;padding:16px 20px;display:flex;align-items:center;justify-content:space-between}
+.admin-header-title{font-size:20px;font-weight:800;color:#fff}
+.admin-badge{background:rgba(255,255,255,.2);color:#fff;font-size:12px;font-weight:700;padding:4px 10px;border-radius:10px}
+.btn-admin-exit{background:none;border:2px solid rgba(255,255,255,.4);color:#fff;border-radius:8px;padding:8px 14px;font-size:14px;font-weight:700;cursor:pointer;font-family:var(--font)}
+.admin-body{flex:1;overflow-y:auto;padding:16px;background:var(--bg)}
+.admin-card{background:var(--surface);border-radius:16px;padding:16px;margin-bottom:10px;box-shadow:var(--shadow);border:1.5px solid var(--border)}
+.admin-card-title{font-size:16px;font-weight:800;color:var(--text);margin-bottom:3px}
+.admin-card-sub{font-size:13px;color:var(--muted);margin-bottom:10px}
+.admin-card-actions{display:flex;gap:8px;flex-wrap:wrap}
+.btn-aban{padding:8px 14px;background:var(--red-bg);border:1.5px solid #fecaca;border-radius:8px;color:var(--red);font-size:13px;font-weight:700;cursor:pointer;font-family:var(--font)}
+.btn-aunban{padding:8px 14px;background:var(--green-bg);border:1.5px solid #86efac;border-radius:8px;color:var(--green);font-size:13px;font-weight:700;cursor:pointer;font-family:var(--font)}
+.btn-adel{padding:8px 14px;background:var(--red-bg);border:1.5px solid #fecaca;border-radius:8px;color:var(--red);font-size:13px;font-weight:700;cursor:pointer;font-family:var(--font)}
+.btn-aext{padding:8px 14px;background:#dbeafe;border:1.5px solid #93c5fd;border-radius:8px;color:#1d4ed8;font-size:13px;font-weight:700;cursor:pointer;font-family:var(--font)}
+.btn-aact{padding:8px 14px;background:var(--green-bg);border:1.5px solid #86efac;border-radius:8px;color:var(--green);font-size:13px;font-weight:700;cursor:pointer;font-family:var(--font)}
+.ban-badge{font-size:11px;font-weight:700;background:var(--red);color:#fff;padding:2px 7px;border-radius:6px;margin-left:6px}
+.demo-badge{font-size:11px;font-weight:700;padding:2px 7px;border-radius:6px;margin-left:6px}
+.demo-badge.activa{background:#fef3c7;color:#d97706}
+.demo-badge.vencida{background:var(--red-bg);color:var(--red)}
+.demo-badge.completa{background:var(--green-bg);color:var(--green)}
+
+/* ══ PIN ═══════════════════════════════════════════════════ */
+.pin-overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);display:none;align-items:flex-end;justify-content:center;z-index:9999}
+.pin-overlay.open{display:flex}
+@media(min-width:600px){.pin-overlay{align-items:center}}
+.pin-modal{background:var(--surface);border-radius:28px 28px 0 0;padding:28px 24px 40px;width:100%;max-width:360px}
+@media(min-width:600px){.pin-modal{border-radius:28px}}
+.pin-sub{font-size:16px;color:var(--muted);text-align:center;margin-bottom:16px;font-weight:600}
+.pin-dots{display:flex;gap:12px;justify-content:center;margin-bottom:24px}
+.pin-dot{width:18px;height:18px;border-radius:50%;background:var(--border);transition:background .2s}
+.pin-dot.filled{background:var(--coral)}
+.pin-pad{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.pin-btn{padding:20px;background:var(--bg);border:2.5px solid var(--border);border-radius:14px;font-size:24px;font-weight:800;color:var(--text);cursor:pointer;font-family:var(--font);transition:all .2s}
+.pin-btn:active{background:var(--coral);color:#fff;border-color:var(--coral)}
+.pin-err{color:var(--red);font-size:15px;font-weight:700;text-align:center;margin-top:12px;display:none}
+
+/* ══ DEMO WALL ═════════════════════════════════════════════ */
+#demo-wall{position:fixed;inset:0;background:linear-gradient(160deg,var(--coral),#C94D33);display:none;align-items:center;justify-content:center;z-index:9990;padding:24px}
+#demo-wall.open{display:flex}
+.demo-card{background:#fff;border-radius:28px;padding:40px 28px;width:100%;max-width:380px;text-align:center;box-shadow:0 32px 80px rgba(0,0,0,.3);animation:fadeUp .4s ease both}
+.demo-card-icon{font-size:64px;margin-bottom:16px}
+.demo-card-title{font-size:26px;font-weight:900;color:var(--navy);margin-bottom:10px}
+.demo-card-sub{font-size:16px;color:#6B7280;line-height:1.6;margin-bottom:28px;font-weight:600}
+.btn-demo-email{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;padding:18px;background:var(--coral);color:#fff;border:none;border-radius:14px;font-size:17px;font-weight:800;cursor:pointer;text-decoration:none;margin-bottom:12px;box-shadow:0 4px 0 var(--coral2)}
+.btn-demo-logout{font-size:15px;color:#9CA3AF;cursor:pointer;text-decoration:underline;background:none;border:none;font-family:var(--font);font-weight:600}
+.demo-countdown{font-size:13px;font-weight:700;background:rgba(255,255,255,.25);color:#fff;padding:5px 12px;border-radius:99px;margin-left:8px}
+.demo-countdown.urgente{background:rgba(255,255,255,.35)}
+
+/* ══ EMPTY / LOADING ═══════════════════════════════════════ */
+.empty{text-align:center;padding:48px 24px;color:var(--muted)}
+.empty-icon{font-size:56px;margin-bottom:14px}
+.empty-msg{font-size:20px;font-weight:800;color:var(--text);margin-bottom:8px}
+.empty-sub{font-size:16px;font-weight:600}
+.spinner{width:32px;height:32px;border:3px solid var(--border);border-top-color:var(--coral);border-radius:50%;animation:spin .7s linear infinite;margin:40px auto}
+
+/* ══ VOZ ════════════════════════════════════════════════════ */
+.voice-screen{display:flex;flex-direction:column;align-items:center;justify-content:space-between;min-height:calc(100vh - 200px);padding:20px 20px 10px}
+.voice-companion-area{display:flex;flex-direction:column;align-items:center;gap:12px;flex:1;justify-content:center}
+.voice-avatar-wrap{position:relative;display:flex;align-items:center;justify-content:center}
+.voice-avatar{width:120px;height:120px;border-radius:50%;background:linear-gradient(135deg,var(--coral),#C94D33);display:flex;align-items:center;justify-content:center;font-size:60px;box-shadow:0 8px 32px rgba(232,99,74,.3);transition:transform .3s}
+.voice-avatar.speaking{animation:speakPulse 0.6s ease-in-out infinite alternate}
+.voice-avatar.listening{animation:listenPulse 1s ease-in-out infinite}
+@keyframes speakPulse{from{transform:scale(1);box-shadow:0 8px 32px rgba(232,99,74,.3)}to{transform:scale(1.08);box-shadow:0 12px 48px rgba(232,99,74,.6)}}
+@keyframes listenPulse{0%,100%{box-shadow:0 8px 32px rgba(232,99,74,.3),0 0 0 0 rgba(232,99,74,.4)}50%{box-shadow:0 8px 32px rgba(232,99,74,.3),0 0 0 24px rgba(232,99,74,0)}}
+.voice-rings{position:absolute;inset:-20px;border-radius:50%;border:3px solid rgba(232,99,74,.2);animation:ringExpand 1.5s ease-out infinite;display:none}
+.voice-rings.active{display:block}
+.voice-rings:nth-child(2){animation-delay:.5s}
+.voice-rings:nth-child(3){animation-delay:1s}
+@keyframes ringExpand{0%{transform:scale(1);opacity:.6}100%{transform:scale(1.8);opacity:0}}
+.voice-name{font-size:24px;font-weight:900;color:var(--text)}
+.voice-status{font-size:17px;font-weight:600;color:var(--muted);min-height:28px;text-align:center;transition:all .3s}
+.voice-status.listening{color:var(--coral);font-weight:700}
+.voice-status.speaking{color:var(--green);font-weight:700}
+.voice-transcript{background:var(--surface);border:2px solid var(--border);border-radius:var(--radius);padding:14px 18px;font-size:16px;font-weight:600;color:var(--text);min-height:60px;max-height:100px;overflow-y:auto;width:100%;text-align:center;line-height:1.5;display:none}
+.voice-transcript.show{display:block}
+.voice-btn-area{display:flex;flex-direction:column;align-items:center;gap:16px;width:100%;padding-bottom:10px}
+.btn-voice-main{width:100px;height:100px;border-radius:50%;border:none;background:var(--coral);color:#fff;font-size:40px;cursor:pointer;box-shadow:0 6px 0 var(--coral2),0 10px 32px rgba(232,99,74,.4);transition:transform .1s,box-shadow .1s;display:flex;align-items:center;justify-content:center}
+.btn-voice-main:active{transform:translateY(3px);box-shadow:0 3px 0 var(--coral2)}
+.btn-voice-main.listening{background:var(--red);box-shadow:0 6px 0 #991020,0 10px 32px rgba(220,53,69,.4)}
+.btn-voice-main.speaking{background:var(--green);box-shadow:0 6px 0 #1a6e45,0 10px 32px rgba(46,158,107,.4);cursor:default}
+.btn-voice-label{font-size:16px;font-weight:700;color:var(--muted)}
+.voice-last-msg{background:var(--warm2);border:2px solid var(--border);border-radius:var(--radius);padding:14px 18px;width:100%;font-size:15px;font-weight:600;color:var(--text);line-height:1.5;display:none;max-height:80px;overflow-y:auto}
+.voice-last-msg.show{display:block}
+.btn-switch-text{background:none;border:none;color:var(--muted);font-size:15px;font-weight:700;cursor:pointer;font-family:var(--font);text-decoration:underline;padding:4px}
+
+/* ══ TOAST ═════════════════════════════════════════════════ */
+#toast-wrap{position:fixed;bottom:90px;right:16px;display:flex;flex-direction:column;gap:8px;z-index:9998}
+.toast{background:var(--navy);color:#fff;padding:14px 20px;border-radius:14px;font-size:16px;font-weight:700;box-shadow:var(--shadow-md);animation:fadeUp .3s ease both}
+.toast.ok{background:var(--green)}
+.toast.err{background:var(--red)}
+
+@media(max-width:480px){
+  .login-title{font-size:30px}
+  .login-heart{font-size:60px}
+  .msg-bubble{font-size:16px;padding:14px 16px}
+}
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="screen-login" class="screen active">
+  <div class="login-hero">
+    <span class="login-heart">💗</span>
+    <div class="login-title">Charl<span style="color:var(--gold)">AR</span></div>
+    <div class="login-sub">Tu compañía digital de confianza</div>
+  </div>
+  <div class="login-card">
+    <div class="login-card-title" id="auth-title">Bienvenido/a</div>
+    <div class="auth-err" id="auth-err"></div>
+    <button class="btn-google" id="btn-google">
+      <svg width="20" height="20" viewBox="0 0 18 18"><path fill="#4285F4" d="M16.51 8H8.98v3h4.3c-.18 1-.74 1.48-1.6 2.04v2.01h2.6a7.8 7.8 0 0 0 2.38-5.88c0-.57-.05-.66-.15-1.18z"/><path fill="#34A853" d="M8.98 17c2.16 0 3.97-.72 5.3-1.94l-2.6-2.04a4.8 4.8 0 0 1-7.18-2.54H1.83v2.07A8 8 0 0 0 8.98 17z"/><path fill="#FBBC05" d="M4.5 10.48A4.8 4.8 0 0 1 4.5 7.5V5.43H1.83a8 8 0 0 0 0 7.14l2.67-2.09z"/><path fill="#EA4335" d="M8.98 3.58c1.32 0 2.5.45 3.44 1.35l2.54-2.54A8 8 0 0 0 1.83 5.43L4.5 7.5c.66-1.97 2.49-3.92 4.48-3.92z"/></svg>
+      Entrar con Google
+    </button>
+    <div class="auth-divider"><div class="auth-divider-line"></div><span class="auth-divider-text">o con email</span><div class="auth-divider-line"></div></div>
+    <div class="field"><label>Email</label><input id="f-email" type="email" placeholder="tu@email.com"/></div>
+    <div class="field"><label>Contraseña</label><input id="f-pass" type="password" placeholder="••••••••"/></div>
+    <button class="btn-primary" id="btn-auth">Ingresar →</button>
+    <div class="auth-toggle"><span id="toggle-mode">¿No tenés cuenta? Registrarse</span></div>
+  </div>
+</div>
+
+<!-- SETUP (primera vez) -->
+<div id="screen-setup" class="screen">
+  <div class="setup-card">
+    <div class="setup-title">¡Hola! 👋</div>
+    <div class="setup-sub">Configurá a tu compañero/a digital antes de empezar</div>
+    <div class="field"><label>¿Cómo se va a llamar?</label><input id="setup-nombre" placeholder="Ej: Clara, Roberto, Sofía..."/></div>
+    <div class="field">
+      <label>Elegí un avatar</label>
+      <div class="avatar-grid">
+        <div class="avatar-opt sel" data-av="👩">👩</div>
+        <div class="avatar-opt" data-av="👨">👨</div>
+        <div class="avatar-opt" data-av="👩‍⚕️">👩‍⚕️</div>
+        <div class="avatar-opt" data-av="👨‍⚕️">👨‍⚕️</div>
+        <div class="avatar-opt" data-av="🧑‍🦳">🧑‍🦳</div>
+        <div class="avatar-opt" data-av="👩‍🦳">👩‍🦳</div>
+        <div class="avatar-opt" data-av="🤖">🤖</div>
+        <div class="avatar-opt" data-av="🦋">🦋</div>
+      </div>
+    </div>
+    <div class="field">
+      <label>¿Cómo es su personalidad?</label>
+      <div class="personality-grid">
+        <div class="pers-opt sel" data-pers="calida"><div class="pers-icon">🤗</div><div class="pers-label">Cálida</div><div class="pers-desc">Afectuosa y cercana</div></div>
+        <div class="pers-opt" data-pers="tranquila"><div class="pers-icon">🌸</div><div class="pers-label">Tranquila</div><div class="pers-desc">Serena y paciente</div></div>
+        <div class="pers-opt" data-pers="alegre"><div class="pers-icon">😄</div><div class="pers-label">Alegre</div><div class="pers-desc">Positiva y animada</div></div>
+        <div class="pers-opt" data-pers="sabia"><div class="pers-icon">🦉</div><div class="pers-label">Sabia</div><div class="pers-desc">Reflexiva y profunda</div></div>
+      </div>
+    </div>
+    <button class="btn-primary" id="btn-setup-save" style="margin-top:8px">¡Empezar! →</button>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="screen-app" class="screen">
+  <div class="app-header">
+    <div class="header-brand" id="app-logo">
+      <span class="header-brand-icon">💗</span>
+      <span class="header-brand-name">Charl<span style="color:var(--gold)">AR</span></span>
+    </div>
+    <div class="header-right">
+      <button class="icon-btn" id="btn-theme">🌙</button>
+      <button class="icon-btn" id="btn-logout">⏻</button>
+    </div>
+  </div>
+  <div class="app-body">
+    <div id="page-inicio" class="page active"></div>
+    <div id="page-chat" class="page"></div>
+    <div id="page-salud" class="page"></div>
+    <div id="page-perfil" class="page"></div>
+  </div>
+  <div class="bottom-nav">
+    <div class="nav-item active" data-page="inicio"><span class="nav-icon">🏠</span>Inicio</div>
+    <div class="nav-item" data-page="chat"><span class="nav-icon">💬</span>Charlar</div>
+    <div class="nav-item" data-page="salud"><span class="nav-icon">😊</span>Ánimo</div>
+    <div class="nav-item" data-page="perfil"><span class="nav-icon">👤</span>Perfil</div>
+  </div>
+</div>
+
+<!-- ADMIN -->
+<div id="screen-admin" class="screen">
+  <div class="admin-header">
+    <div class="admin-header-title">⚡ Panel Admin</div>
+    <div style="display:flex;align-items:center;gap:8px">
+      <span class="admin-badge">SUPER USUARIO</span>
+      <button class="btn-admin-exit" id="btn-admin-exit">Salir</button>
+    </div>
+  </div>
+  <div class="admin-body">
+    <p style="font-size:15px;font-weight:700;color:var(--text);margin-bottom:12px">Usuarios registrados</p>
+    <div id="admin-users-list"><div class="spinner"></div></div>
+  </div>
+</div>
+
+
+
+<!-- PIN -->
+<div class="pin-overlay" id="pin-overlay">
+  <div class="pin-modal">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+      <span style="font-size:20px;font-weight:800;color:var(--text)">🔐 Acceso admin</span>
+      <button style="width:38px;height:38px;background:var(--bg);border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:18px;color:var(--muted);border:none" id="btn-pin-close">✕</button>
+    </div>
+    <p class="pin-sub">Ingresá el PIN de administrador</p>
+    <div class="pin-dots"><div class="pin-dot" id="d0"></div><div class="pin-dot" id="d1"></div><div class="pin-dot" id="d2"></div><div class="pin-dot" id="d3"></div></div>
+    <div class="pin-pad">
+      <button class="pin-btn" data-n="1">1</button><button class="pin-btn" data-n="2">2</button><button class="pin-btn" data-n="3">3</button>
+      <button class="pin-btn" data-n="4">4</button><button class="pin-btn" data-n="5">5</button><button class="pin-btn" data-n="6">6</button>
+      <button class="pin-btn" data-n="7">7</button><button class="pin-btn" data-n="8">8</button><button class="pin-btn" data-n="9">9</button>
+      <button class="pin-btn" data-n="del">⌫</button><button class="pin-btn" data-n="0">0</button>
+      <button class="pin-btn" data-n="ok" style="background:var(--coral);color:#fff;border-color:var(--coral);font-size:16px">OK</button>
+    </div>
+    <p class="pin-err" id="pin-err">PIN incorrecto</p>
+  </div>
+</div>
+
+<!-- DEMO WALL -->
+<div id="demo-wall">
+  <div class="demo-card">
+    <div class="demo-card-icon">⏳</div>
+    <div class="demo-card-title">Tu demo terminó</div>
+    <div class="demo-card-sub">Gracias por probar CharlAR. Para seguir con tu compañía digital, contactanos y te activamos la cuenta.</div>
+    <a href="mailto:ventas@raventechsapp.com?subject=Quiero activar CharlAR&body=Hola, probé la demo y me interesa continuar." class="btn-demo-email">✉️ Contactar por email</a>
+    <button class="btn-demo-logout" id="btn-demo-logout">Cerrar sesión</button>
+  </div>
+</div>
+
+<div id="toast-wrap"></div>
+
+<script type="module">
+import{initializeApp}from"https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import{getAuth,createUserWithEmailAndPassword,signInWithEmailAndPassword,onAuthStateChanged,signOut,GoogleAuthProvider,signInWithPopup}from"https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+import{getFirestore,collection,doc,setDoc,getDoc,addDoc,getDocs,updateDoc,deleteDoc,query,where,orderBy,serverTimestamp,Timestamp}from"https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+// 🔧 FIREBASE CONFIG — reemplazar con los datos del proyecto CharlAR
+const FB={
+  apiKey:"TU_API_KEY",
+  authDomain:"TU_PROJECT.firebaseapp.com",
+  projectId:"TU_PROJECT_ID",
+  storageBucket:"TU_PROJECT.firebasestorage.app",
+  messagingSenderId:"TU_SENDER_ID",
+  appId:"TU_APP_ID"
+};
+const ADMIN_PIN="1990";
+const DEMO_MS=24*60*60*1000;
+
+const fbApp=initializeApp(FB);
+const auth=getAuth(fbApp);
+const db=getFirestore(fbApp);
+
+// ── ESTADO ────────────────────────────────────────────────
+let me=null,userDoc=null,companion=null;
+let moodHoy=null,chatHistory=[];
+let logoTaps=0,logoTimer=null,pinBuf="";
+let isRegister=false;
+
+const MESES=["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
+const PERSONALIDADES={
+  calida:{label:"Cálida 🤗",prompt:"Sos una compañera muy afectuosa, cálida y cercana. Hablás con cariño y siempre hacés sentir a la persona querida y acompañada. Usás palabras dulces y expresiones de afecto naturales."},
+  tranquila:{label:"Tranquila 🌸",prompt:"Sos una compañera serena y paciente. Transmitís calma y tranquilidad. Hablás despacio y con mucha paciencia, nunca te apresurás."},
+  alegre:{label:"Alegre 😄",prompt:"Sos una compañera muy positiva y animada. Buscás siempre el lado bueno de las cosas y contagiás entusiasmo y buen humor de manera natural."},
+  sabia:{label:"Sabia 🦉",prompt:"Sos una compañera reflexiva y profunda. Compartís pensamientos interesantes, hacés buenas preguntas y ayudás a la persona a ver las cosas desde otra perspectiva."}
+};
+
+// ── TEMA ──────────────────────────────────────────────────
+function initTheme(){applyTheme(localStorage.getItem("ca-theme")||"light");}
+function applyTheme(t){
+  document.documentElement.setAttribute("data-theme",t);
+  const b=document.getElementById("btn-theme");
+  if(b)b.textContent=t==="dark"?"🌞":"🌙";
+  localStorage.setItem("ca-theme",t);
+}
+function toggleTheme(){applyTheme(document.documentElement.getAttribute("data-theme")==="dark"?"light":"dark");}
+initTheme();
+
+// ── HELPERS ───────────────────────────────────────────────
+function showScreen(id){document.querySelectorAll(".screen").forEach(s=>s.classList.remove("active"));document.getElementById(id).classList.add("active");}
+function toast(msg,type=""){
+  const el=document.createElement("div");
+  el.className="toast"+(type?" "+type:"");
+  el.textContent=msg;
+  document.getElementById("toast-wrap").appendChild(el);
+  setTimeout(()=>el.remove(),3000);
+}
+function emptyHTML(icon,msg,sub=""){return`<div class="empty"><div class="empty-icon">${icon}</div><div class="empty-msg">${msg}</div>${sub?`<div class="empty-sub">${sub}</div>`:""}</div>`;}
+function hoyStr(){return new Date().toISOString().split("T")[0];}
+function fmtHora(){const n=new Date();return n.getHours().toString().padStart(2,"0")+":"+n.getMinutes().toString().padStart(2,"0");}
+function openModal(id){document.getElementById(id).classList.add("open");}
+function closeModal(id){document.getElementById(id).classList.remove("open");}
+
+// ── LOGO TAPS → PIN ───────────────────────────────────────
+document.getElementById("app-logo").addEventListener("click",()=>{
+  logoTaps++;clearTimeout(logoTimer);
+  if(logoTaps>=5){logoTaps=0;openPin();return;}
+  logoTimer=setTimeout(()=>logoTaps=0,2000);
+});
+
+// ── PIN ───────────────────────────────────────────────────
+function openPin(){pinBuf="";updDots();document.getElementById("pin-err").style.display="none";document.getElementById("pin-overlay").classList.add("open");}
+function closePin(){document.getElementById("pin-overlay").classList.remove("open");}
+function updDots(){for(let i=0;i<4;i++)document.getElementById("d"+i).classList.toggle("filled",i<pinBuf.length);}
+document.querySelector(".pin-pad").addEventListener("click",e=>{
+  const btn=e.target.closest(".pin-btn");if(!btn)return;
+  const n=btn.dataset.n;
+  if(n==="del"){pinBuf=pinBuf.slice(0,-1);updDots();return;}
+  if(n==="ok"||pinBuf.length===4){checkPin();return;}
+  if(pinBuf.length<4){pinBuf+=n;updDots();}
+  if(pinBuf.length===4)checkPin();
+});
+function checkPin(){
+  if(pinBuf===ADMIN_PIN){closePin();showScreen("screen-admin");loadAdminUsers();}
+  else{document.getElementById("pin-err").style.display="block";pinBuf="";updDots();setTimeout(()=>document.getElementById("pin-err").style.display="none",1500);}
+}
+document.getElementById("btn-pin-close").addEventListener("click",closePin);
+document.getElementById("pin-overlay").addEventListener("click",e=>{if(e.target.id==="pin-overlay")closePin();});
+
+// ── ADMIN ─────────────────────────────────────────────────
+async function loadAdminUsers(){
+  const c=document.getElementById("admin-users-list");
+  c.innerHTML='<div class="spinner"></div>';
+  const snap=await getDocs(collection(db,"usuarios"));
+  if(snap.empty){c.innerHTML=emptyHTML("👥","Sin usuarios");return;}
+  const ahora=Date.now();
+  c.innerHTML=snap.docs.map(d=>{
+    const u=d.data();const ban=u.banned===true;
+    let demoBadge="";let demoInfo="";let demoActions="";
+    if(u.status==="activo"){
+      demoBadge='<span class="demo-badge completa">ACTIVO</span>';
+    } else {
+      const start=u.demoStart?.toMillis?.()||0;
+      const expiry=u.demoExpiry?.toMillis?.()||start+86400000;
+      const restante=expiry-ahora;
+      if(restante>0){
+        const h=Math.floor(restante/3600000);const m=Math.floor((restante%3600000)/60000);
+        demoBadge='<span class="demo-badge activa">DEMO</span>';
+        demoInfo=`<div style="font-size:12px;color:#d97706;margin-top:4px">⏱ Vence en ${h}h ${m}m</div>`;
+      } else {
+        demoBadge='<span class="demo-badge vencida">VENCIDA</span>';
+        demoInfo='<div style="font-size:12px;color:var(--red);margin-top:4px">Demo vencida</div>';
+      }
+      demoActions=`<div style="display:flex;gap:8px;align-items:center;margin-top:10px;flex-wrap:wrap">
+        <input type="number" min="1" max="30" value="7" style="width:60px;padding:6px;border:1.5px solid var(--border);border-radius:8px;font-size:14px;font-family:var(--font)" data-ext-uid="${d.id}"/>
+        <button class="btn-aext" data-uid="${d.id}">⏱ Extender</button>
+        <button class="btn-aact" data-uid="${d.id}">✅ Activar</button>
+      </div>`;
+    }
+    return`<div class="admin-card">
+      <div class="admin-card-title">${u.email||d.id}${ban?'<span class="ban-badge">BANEADO</span>':""} ${demoBadge}</div>
+      <div class="admin-card-sub">${u.companionName||"Sin configurar"}</div>
+      ${demoInfo}
+      <div class="admin-card-actions" style="margin-top:10px">
+        ${ban?`<button class="btn-aunban" data-uid="${d.id}">✅ Desbanear</button>`:`<button class="btn-aban" data-uid="${d.id}">🚫 Banear</button>`}
+        <button class="btn-adel" data-uid="${d.id}">🗑️ Eliminar</button>
+      </div>
+      ${demoActions}
+    </div>`;
+  }).join("");
+}
+document.getElementById("admin-users-list").addEventListener("click",async e=>{
+  const ban=e.target.closest(".btn-aban");const unban=e.target.closest(".btn-aunban");
+  const del=e.target.closest(".btn-adel");const ext=e.target.closest(".btn-aext");const act=e.target.closest(".btn-aact");
+  if(ban&&confirm("¿Banear este usuario?")){await updateDoc(doc(db,"usuarios",ban.dataset.uid),{banned:true});toast("Usuario baneado");await loadAdminUsers();}
+  if(unban){await updateDoc(doc(db,"usuarios",unban.dataset.uid),{banned:false});toast("Usuario desbaneado");await loadAdminUsers();}
+  if(del&&confirm("¿Eliminar este usuario?")){await deleteDoc(doc(db,"usuarios",del.dataset.uid));toast("Usuario eliminado");await loadAdminUsers();}
+  if(ext){
+    const dias=parseInt(document.querySelector(`input[data-ext-uid="${ext.dataset.uid}"]`)?.value)||7;
+    const snap=await getDoc(doc(db,"usuarios",ext.dataset.uid));const u=snap.data();
+    const baseMs=u.demoExpiry?.toMillis?.()||((u.demoStart?.toMillis?.()||Date.now())+86400000);
+    const nuevoExpiry=new Date(Math.max(baseMs,Date.now())+dias*86400000);
+    await updateDoc(doc(db,"usuarios",ext.dataset.uid),{demoExpiry:Timestamp.fromDate(nuevoExpiry),status:"demo"});
+    toast(`Demo extendida ${dias} días`);await loadAdminUsers();
+  }
+  if(act&&confirm("¿Activar cuenta completa?")){
+    await updateDoc(doc(db,"usuarios",act.dataset.uid),{status:"activo",demoExpiry:null});
+    toast("Cuenta activada ✅");await loadAdminUsers();
+  }
+});
+document.getElementById("btn-admin-exit").addEventListener("click",()=>{if(me)showScreen("screen-app");else showScreen("screen-login");});
+
+// ── DEMO ──────────────────────────────────────────────────
+function getDemoRestante(data){
+  if(data.status==="activo")return Infinity;
+  const start=data.demoStart?.toMillis?.()||0;
+  const expiry=data.demoExpiry?.toMillis?.()||start+DEMO_MS;
+  return expiry-Date.now();
+}
+function checkDemo(){
+  if(!userDoc)return;
+  const restante=getDemoRestante(userDoc);
+  if(restante===Infinity)return;
+  if(restante<=0){document.getElementById("demo-wall").classList.add("open");return;}
+  const h=Math.floor(restante/3600000);
+  const m=Math.floor((restante%3600000)/60000);
+  const urgente=restante<3600000;
+  const cd=document.createElement("span");
+  cd.className="demo-countdown"+(urgente?" urgente":"");
+  cd.textContent="⏱ "+(h>0?h+"h "+m+"m":m+"m");
+  document.querySelector(".header-right")?.prepend(cd);
+}
+document.getElementById("btn-demo-logout").addEventListener("click",()=>signOut(auth));
+
+// ── AUTH STATE ────────────────────────────────────────────
+onAuthStateChanged(auth,async user=>{
+  if(user){
+    me=user;
+    const userRef=doc(db,"usuarios",user.uid);
+    const snap=await getDoc(userRef);
+    if(!snap.exists()){
+      await setDoc(userRef,{
+        uid:user.uid,email:user.email,banned:false,
+        status:"demo",demoStart:serverTimestamp(),
+        createdAt:serverTimestamp()
+      });
+    }
+    userDoc=(await getDoc(userRef)).data();
+    if(userDoc.banned){toast("Cuenta suspendida","err");await signOut(auth);return;}
+    // Cargar compañero y datos
+    const compSnap=await getDoc(doc(db,"usuarios",user.uid,"config","companion"));
+    if(compSnap.exists()){
+      companion=compSnap.data();
+      await loadUserData();
+      showScreen("screen-app");
+      renderPage("inicio");
+      checkDemo();
+    } else {
+      showScreen("screen-setup");
+    }
+  } else {
+    me=null;userDoc=null;companion=null;
+    document.getElementById("demo-wall").classList.remove("open");
+    showScreen("screen-login");
+  }
+});
+
+// ── AUTH ACTIONS ──────────────────────────────────────────
+document.getElementById("toggle-mode").addEventListener("click",()=>{
+  isRegister=!isRegister;
+  document.getElementById("btn-auth").textContent=isRegister?"Crear cuenta →":"Ingresar →";
+  document.getElementById("toggle-mode").textContent=isRegister?"¿Ya tenés cuenta? Ingresá":"¿No tenés cuenta? Registrarse";
+  document.getElementById("auth-title").textContent=isRegister?"Crear cuenta":"Bienvenido/a";
+});
+document.getElementById("f-pass").addEventListener("keydown",e=>{if(e.key==="Enter")document.getElementById("btn-auth").click();});
+document.getElementById("btn-auth").addEventListener("click",async()=>{
+  const email=document.getElementById("f-email").value.trim();
+  const pass=document.getElementById("f-pass").value;
+  const errEl=document.getElementById("auth-err");
+  errEl.style.display="none";errEl.classList.remove("show");
+  if(!email||!pass){errEl.textContent="Completá todos los campos";errEl.style.display="block";errEl.classList.add("show");return;}
+  const btn=document.getElementById("btn-auth");btn.disabled=true;btn.textContent=isRegister?"Creando...":"Ingresando...";
+  try{
+    if(isRegister)await createUserWithEmailAndPassword(auth,email,pass);
+    else await signInWithEmailAndPassword(auth,email,pass);
+  }catch(e){
+    const msgs={"auth/user-not-found":"No existe cuenta con ese email.","auth/wrong-password":"Contraseña incorrecta.","auth/email-already-in-use":"Ya existe cuenta con ese email.","auth/weak-password":"Mínimo 6 caracteres.","auth/invalid-credential":"Email o contraseña incorrectos."};
+    errEl.textContent=msgs[e.code]||"Error. Intentá de nuevo.";
+    errEl.style.display="block";errEl.classList.add("show");
+  }
+  btn.disabled=false;btn.textContent=isRegister?"Crear cuenta →":"Ingresar →";
+});
+document.getElementById("btn-google").addEventListener("click",async()=>{
+  const btn=document.getElementById("btn-google");btn.disabled=true;btn.textContent="Conectando...";
+  try{const provider=new GoogleAuthProvider();await signInWithPopup(auth,provider);}
+  catch(e){const errEl=document.getElementById("auth-err");errEl.textContent="Error con Google. Intentá de nuevo.";errEl.style.display="block";errEl.classList.add("show");}
+  btn.disabled=false;btn.textContent="Entrar con Google";
+});
+document.getElementById("btn-logout").addEventListener("click",()=>signOut(auth));
+document.getElementById("btn-theme").addEventListener("click",toggleTheme);
+
+// ── SETUP ─────────────────────────────────────────────────
+let setupAv="👩",setupPers="calida";
+document.querySelectorAll(".avatar-opt").forEach(o=>o.addEventListener("click",()=>{
+  document.querySelectorAll(".avatar-opt").forEach(x=>x.classList.remove("sel"));
+  o.classList.add("sel");setupAv=o.dataset.av;
+}));
+document.querySelectorAll(".pers-opt").forEach(o=>o.addEventListener("click",()=>{
+  document.querySelectorAll(".pers-opt").forEach(x=>x.classList.remove("sel"));
+  o.classList.add("sel");setupPers=o.dataset.pers;
+}));
+document.getElementById("btn-setup-save").addEventListener("click",async()=>{
+  const nombre=document.getElementById("setup-nombre").value.trim();
+  if(!nombre){toast("Escribí un nombre para tu compañero/a","err");return;}
+  const btn=document.getElementById("btn-setup-save");btn.disabled=true;btn.textContent="Guardando...";
+  try{
+    const data={nombre,avatar:setupAv,personalidad:setupPers};
+    await setDoc(doc(db,"usuarios",me.uid,"config","companion"),data);
+    companion=data;
+    await loadUserData();
+    showScreen("screen-app");
+    renderPage("inicio");
+    checkDemo();
+  }catch(e){toast("Error al guardar","err");}
+  btn.disabled=false;btn.textContent="¡Empezar! →";
+});
+
+// ── CARGAR DATOS ──────────────────────────────────────────
+async function loadUserData(){
+  // Mood del día
+  try{
+    const saved=JSON.parse(localStorage.getItem("ca-mood")||"{}");
+    moodHoy=saved.fecha===hoyStr()?saved.mood:null;
+    // Si hay valor numérico (incluyendo 0)
+    if(typeof moodHoy!=="number")moodHoy=null;
+  }catch{moodHoy=null;}
+}
+
+// ── TOMAS ─────────────────────────────────────────────────
+
+function saveMood(m){moodHoy=m;localStorage.setItem("ca-mood",JSON.stringify({fecha:hoyStr(),mood:m}));}
+
+// ── NAVEGACIÓN ─────────────────────────────────────────────
+function renderPage(page){
+  document.querySelectorAll(".page").forEach(p=>p.classList.remove("active"));
+  document.getElementById("page-"+page).classList.add("active");
+  document.querySelectorAll(".nav-item").forEach(n=>n.classList.toggle("active",n.dataset.page===page));
+  if(page==="inicio")renderInicio();
+  else if(page==="chat")renderChat();
+  else if(page==="salud")renderSalud();
+  else if(page==="perfil")renderPerfil();
+}
+document.querySelectorAll(".nav-item[data-page]").forEach(n=>n.addEventListener("click",()=>renderPage(n.dataset.page)));
+
+// ── INICIO ────────────────────────────────────────────────
+function renderInicio(){
+  const el=document.getElementById("page-inicio");
+  const hora=new Date().getHours();
+  const saludo=hora<12?"¡Buenos días":hora<18?"¡Buenas tardes":"¡Buenas noches";
+  const nombre=me?.email?.split("@")[0]||"";
+  const moodEmojis=["😞","😕","😐","🙂","😊"];
+  const moodLabels=["Muy mal","Mal","Regular","Bien","Muy bien"];
+  el.innerHTML=`
+    <div class="companion-banner">
+      <div class="companion-avatar">${companion?.avatar||"💗"}</div>
+      <div>
+        <div class="companion-name">${companion?.nombre||"Tu compañero/a"}</div>
+        <div class="companion-status"><span class="companion-dot"></span>En línea, esperándote</div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-bottom:20px">
+      <div class="card-title" style="font-size:20px">${saludo}, ${nombre}! ¿Cómo estás hoy?</div>
+      ${moodHoy!==null?`
+        <div style="text-align:center;padding:10px 0">
+          <div style="font-size:56px;margin-bottom:8px">${moodEmojis[moodHoy]}</div>
+          <div style="font-size:18px;font-weight:800;color:var(--text)">${moodLabels[moodHoy]}</div>
+          <div style="font-size:14px;color:var(--muted);margin-top:6px">Ya registraste cómo te sentís hoy</div>
+          <button style="margin-top:12px;padding:8px 18px;background:none;border:2px solid var(--border);border-radius:99px;font-size:14px;font-weight:700;color:var(--muted);cursor:pointer" id="btn-cambiar-mood">Cambiar</button>
+        </div>`:`
+        <div style="font-size:16px;color:var(--muted);font-weight:600;margin-bottom:14px">Tocá cómo te sentís:</div>
+        <div class="mood-grid" id="mood-grid">
+          ${moodEmojis.map((e,i)=>`<div class="mood-btn" data-mood="${i}">
+            <span class="mood-emoji">${e}</span>
+            <span class="mood-label">${moodLabels[i]}</span>
+          </div>`).join("")}
+        </div>`}
+    </div>
+
+    <button class="btn-primary" id="btn-ir-chat" style="font-size:20px;padding:22px;border-radius:20px">
+      💬 Charlar con ${companion?.nombre||"tu compañero/a"}
+    </button>
+
+    ${moodHoy!==null?`
+    <button id="btn-consejo-inicio" style="width:100%;margin-top:12px;padding:18px;background:var(--warm2);border:2.5px solid var(--coral);border-radius:20px;font-size:18px;font-weight:800;color:var(--coral);cursor:pointer;font-family:var(--font)">
+      💡 Pedirle un consejo a ${companion?.nombre||"tu compañero/a"}
+    </button>`:""}`;
+
+  el.querySelectorAll(".mood-btn[data-mood]").forEach(btn=>{
+    btn.addEventListener("click",()=>{
+      saveMood(parseInt(btn.dataset.mood));
+      renderInicio();
+      toast("¡Gracias por contarme cómo estás! 💗");
+    });
+  });
+  el.querySelector("#btn-cambiar-mood")?.addEventListener("click",()=>{saveMood(null);renderInicio();});
+  el.querySelector("#btn-ir-chat")?.addEventListener("click",()=>renderPage("chat"));
+  el.querySelector("#btn-consejo-inicio")?.addEventListener("click",()=>{
+    voiceMode=true;
+    renderPage("chat");
+    setTimeout(()=>sendVoiceMessage("¿Me podés dar un consejo para hoy?"),300);
+  });
+}
+
+// ── CHAT POR VOZ ──────────────────────────────────────────
+let voiceMode=true; // true=voz, false=texto
+let recognition=null;
+let isListening=false;
+let isSpeaking=false;
+let currentUtterance=null;
+
+function initRecognition(){
+  const SpeechRecognition=window.SpeechRecognition||window.webkitSpeechRecognition;
+  if(!SpeechRecognition)return null;
+  const r=new SpeechRecognition();
+  r.lang="es-AR";r.continuous=false;r.interimResults=true;
+  return r;
+}
+
+function getBestVoice(){
+  const voices=window.speechSynthesis.getVoices();
+  if(!voices.length)return null;
+  // Prioridad: voces premium/neural en español
+  const priority=[
+    // Microsoft Neural (Edge/Windows) — las mejores gratis
+    v=>v.name.includes("Sabina"),
+    v=>v.name.includes("Raquel"),
+    v=>v.name.includes("Elvira"),
+    v=>v.name.includes("Luciana"),
+    // Apple (iOS/macOS) — muy naturales
+    v=>v.name.includes("Mónica")||v.name.includes("Monica"),
+    v=>v.name.includes("Paulina"),
+    v=>v.name.includes("Francisca"),
+    // Google (Android/Chrome)
+    v=>v.name.includes("Google")&&v.lang.startsWith("es"),
+    // Cualquier español "enhanced" o "premium"
+    v=>v.lang.startsWith("es")&&(v.name.toLowerCase().includes("enhanced")||v.name.toLowerCase().includes("premium")||v.name.toLowerCase().includes("neural")),
+    // Español de Argentina
+    v=>v.lang==="es-AR",
+    // Español de España o Latinoamérica
+    v=>v.lang.startsWith("es")&&v.localService,
+    // Cualquier español
+    v=>v.lang.startsWith("es")||v.lang.includes("ES"),
+  ];
+  for(const test of priority){
+    const found=voices.find(test);
+    if(found)return found;
+  }
+  return null;
+}
+
+function speakText(text,onEnd){
+  window.speechSynthesis.cancel();
+  const utt=new SpeechSynthesisUtterance(text);
+  utt.lang="es-AR";utt.rate=0.90;utt.pitch=1.05;utt.volume=1;
+  const voice=getBestVoice();
+  if(voice){
+    utt.voice=voice;
+    // Ajustar velocidad según tipo de voz
+    if(voice.name.includes("Google"))utt.rate=0.88;
+    if(voice.name.includes("Microsoft"))utt.rate=0.92;
+    if(voice.localService)utt.rate=0.90;
+  }
+  utt.onend=()=>{isSpeaking=false;if(onEnd)onEnd();updateVoiceUI();};
+  utt.onerror=()=>{isSpeaking=false;if(onEnd)onEnd();updateVoiceUI();};
+  currentUtterance=utt;
+  isSpeaking=true;
+  updateVoiceUI();
+  // Algunas voces tardan en cargar — pequeño delay
+  setTimeout(()=>window.speechSynthesis.speak(utt),50);
+}
+
+// Precargar voces al inicio
+window.speechSynthesis.onvoiceschanged=()=>getBestVoice();
+if(window.speechSynthesis.getVoices().length>0)getBestVoice();
+
+function stopSpeaking(){
+  window.speechSynthesis.cancel();
+  isSpeaking=false;
+  updateVoiceUI();
+}
+
+function updateVoiceUI(){
+  const avatar=document.getElementById("voice-avatar");
+  const status=document.getElementById("voice-status");
+  const btn=document.getElementById("btn-voice-main");
+  const label=document.getElementById("voice-btn-label");
+  const rings=document.querySelectorAll(".voice-rings");
+  if(!avatar)return;
+  if(isSpeaking){
+    avatar.className="voice-avatar speaking";
+    status.className="voice-status speaking";
+    status.textContent=`${companion?.nombre||"Tu compañero/a"} está hablando...`;
+    btn.className="btn-voice-main speaking";
+    btn.textContent="🔊";
+    label.textContent="Hablando...";
+    rings.forEach(r=>r.classList.remove("active"));
+  } else if(isListening){
+    avatar.className="voice-avatar listening";
+    status.className="voice-status listening";
+    status.textContent="Escuchando... hablá ahora";
+    btn.className="btn-voice-main listening";
+    btn.textContent="⏹";
+    label.textContent="Tocá para terminar";
+    rings.forEach(r=>r.classList.add("active"));
+  } else {
+    avatar.className="voice-avatar";
+    status.className="voice-status";
+    status.textContent=`${companion?.nombre||"Tu compañero/a"} está lista para escucharte`;
+    btn.className="btn-voice-main";
+    btn.textContent="🎤";
+    label.textContent="Tocá para hablar";
+    rings.forEach(r=>r.classList.remove("active"));
+  }
+}
+
+function renderChat(){
+  const el=document.getElementById("page-chat");
+  if(voiceMode){
+    renderVoiceChat(el);
+  } else {
+    renderTextChat(el);
+  }
+}
+
+function renderVoiceChat(el){
+  const lastAI=chatHistory.filter(m=>m.role==="ai").slice(-1)[0];
+  el.innerHTML=`
+    <div class="voice-screen">
+      <div class="voice-companion-area">
+        <div class="voice-avatar-wrap">
+          <div class="voice-rings"></div>
+          <div class="voice-rings"></div>
+          <div class="voice-rings"></div>
+          <div class="voice-avatar" id="voice-avatar">${companion?.avatar||"💗"}</div>
+        </div>
+        <div class="voice-name">${companion?.nombre||"Tu compañero/a"}</div>
+        <div class="voice-status" id="voice-status">${companion?.nombre||"Tu compañero/a"} está lista para escucharte</div>
+        ${lastAI?`<div class="voice-last-msg show" id="voice-last-msg">${lastAI.content}</div>`:`<div class="voice-last-msg" id="voice-last-msg"></div>`}
+        <div class="voice-transcript" id="voice-transcript"></div>
+      </div>
+      <div class="voice-btn-area">
+        <button class="btn-voice-main" id="btn-voice-main">🎤</button>
+        <div class="voice-btn-label" id="voice-btn-label">Tocá para hablar</div>
+        <button class="btn-switch-text" id="btn-switch-text">✏️ Prefiero escribir</button>
+      </div>
+    </div>`;
+
+  // Cargar voces (pueden tardar en estar disponibles)
+  if(window.speechSynthesis.getVoices().length===0){
+    window.speechSynthesis.onvoiceschanged=()=>{};
+  }
+
+  document.getElementById("btn-voice-main").addEventListener("click",()=>{
+    if(isSpeaking){stopSpeaking();return;}
+    if(isListening){stopListening();return;}
+    startListening();
+  });
+  document.getElementById("btn-switch-text").addEventListener("click",()=>{
+    voiceMode=false;stopSpeaking();if(recognition)recognition.abort();isListening=false;renderChat();
+  });
+}
+
+function startListening(){
+  if(isListening||isSpeaking)return;
+  recognition=initRecognition();
+  if(!recognition){
+    toast("Tu dispositivo no soporta reconocimiento de voz. Usá el modo texto.","err");
+    return;
+  }
+  isListening=true;updateVoiceUI();
+  const transcript=document.getElementById("voice-transcript");
+  if(transcript){transcript.className="voice-transcript show";transcript.textContent="...";}
+  recognition.onresult=e=>{
+    const interim=Array.from(e.results).map(r=>r[0].transcript).join("");
+    if(transcript)transcript.textContent=interim;
+  };
+  recognition.onend=()=>{
+    isListening=false;
+    const t=transcript?.textContent||"";
+    if(transcript)transcript.className="voice-transcript";
+    if(t&&t!=="...")sendVoiceMessage(t);
+    else updateVoiceUI();
+  };
+  recognition.onerror=e=>{
+    isListening=false;updateVoiceUI();
+    if(e.error!=="aborted")toast("No pude escucharte bien. Intentá de nuevo.","err");
+  };
+  recognition.start();
+}
+
+function stopListening(){
+  if(recognition)recognition.stop();
+  isListening=false;updateVoiceUI();
+}
+
+async function sendVoiceMessage(text){
+  if(!text.trim())return;
+  chatHistory.push({role:"user",content:text,time:fmtHora()});
+  const lastMsg=document.getElementById("voice-last-msg");
+  if(lastMsg){lastMsg.className="voice-last-msg show";lastMsg.textContent="Vos: "+text;}
+  // Estado: procesando
+  const status=document.getElementById("voice-status");
+  if(status){status.className="voice-status";status.textContent="Pensando...";}
+  try{
+    const reply=await getAIReply(text);
+    chatHistory.push({role:"ai",content:reply,time:fmtHora()});
+    if(lastMsg){lastMsg.textContent=reply;}
+    speakText(reply,()=>{updateVoiceUI();});
+  }catch(e){
+    const errMsg="Tuve un problema. ¿Podés intentarlo de nuevo?";
+    speakText(errMsg);
+  }
+}
+
+function renderTextChat(el){
+  el.innerHTML=`
+    <div class="chat-wrap">
+      <div style="padding:10px 16px;border-bottom:2px solid var(--border);display:flex;align-items:center;gap:10px;background:var(--surface)">
+        <button class="btn-switch-text" id="btn-switch-voice" style="font-size:15px;font-weight:700;color:var(--coral);text-decoration:none;border:2px solid var(--coral);padding:6px 14px;border-radius:99px;background:none;cursor:pointer;font-family:var(--font)">🎤 Volver a voz</button>
+        <span style="font-size:14px;color:var(--muted);font-weight:600">Modo escritura</span>
+      </div>
+      <div class="chat-messages" id="chat-messages">
+        ${chatHistory.length===0?`<div style="text-align:center;padding:24px 0">
+          <div style="font-size:48px;margin-bottom:12px">${companion?.avatar||"💗"}</div>
+          <div style="font-size:18px;font-weight:700;color:var(--text);margin-bottom:6px">Hola, soy ${companion?.nombre||"tu compañero/a"}</div>
+          <div style="font-size:15px;color:var(--muted);font-weight:600">¿De qué querés hablar hoy?</div>
+        </div>`:""}
+        ${chatHistory.map(m=>msgHTML(m)).join("")}
+      </div>
+      <div style="padding:10px 16px 0">
+        <button id="btn-consejo-chat" style="width:100%;padding:14px;background:var(--warm2);border:2.5px solid var(--coral);border-radius:14px;font-size:16px;font-weight:800;color:var(--coral);cursor:pointer;font-family:var(--font);margin-bottom:8px">
+          💡 Pedirle un consejo a ${companion?.nombre||"tu compañero/a"}
+        </button>
+      </div>
+      <div class="quick-replies">
+        <button class="quick-btn" data-q="¿Cómo estás hoy?">¿Cómo estás?</button>
+        <button class="quick-btn" data-q="Contame algo lindo">Algo lindo 🌸</button>
+        <button class="quick-btn" data-q="Me siento un poco solo/a hoy">Me siento solo/a</button>
+        <button class="quick-btn" data-q="Contame un chiste">Un chiste 😄</button>
+        <button class="quick-btn" data-q="¿Qué puedo hacer hoy para sentirme mejor?">Sentirme mejor</button>
+      </div>
+      <div class="chat-input-wrap">
+        <textarea class="chat-input" id="chat-input" placeholder="Escribí lo que quieras..." rows="1"></textarea>
+        <button class="chat-send-btn" id="chat-send">➤</button>
+      </div>
+    </div>`;
+
+  const msgs=el.querySelector("#chat-messages");
+  msgs.scrollTop=msgs.scrollHeight;
+  el.querySelector("#btn-switch-voice")?.addEventListener("click",()=>{voiceMode=true;renderChat();});
+  el.querySelector("#btn-consejo-chat")?.addEventListener("click",()=>sendTextMessage("¿Me podés dar un consejo para hoy?"));
+  el.querySelectorAll(".quick-btn[data-q]").forEach(btn=>{
+    btn.addEventListener("click",()=>sendTextMessage(btn.dataset.q));
+  });
+  const input=el.querySelector("#chat-input");
+  input?.addEventListener("keydown",e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();sendTextMessage(input.value.trim());}});
+  input?.addEventListener("input",()=>{input.style.height="auto";input.style.height=Math.min(input.scrollHeight,120)+"px";});
+  el.querySelector("#chat-send")?.addEventListener("click",()=>sendTextMessage(input?.value.trim()||""));
+}
+
+function msgHTML(m){
+  return`<div class="msg ${m.role}">
+    ${m.role==="ai"?`<div class="msg-avatar">${companion?.avatar||"💗"}</div>`:""}
+    <div class="msg-bubble">${m.content}</div>
+    <div class="msg-time">${m.time||""}</div>
+  </div>`;
+}
+
+// ── CONTEXTO PARA LA IA ───────────────────────────────────
+let climaCache=null;
+async function getClima(){
+  if(climaCache)return climaCache;
+  try{
+    const pos=await new Promise((res,rej)=>navigator.geolocation.getCurrentPosition(res,rej,{timeout:4000}));
+    const {latitude:lat,longitude:lon}=pos.coords;
+    const r=await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,weathercode&timezone=auto`);
+    const d=await r.json();
+    const temp=Math.round(d.current.temperature_2m);
+    const code=d.current.weathercode;
+    const desc=code<=1?"despejado y lindo":code<=3?"nublado":code<=67?"con lluvia":"con mal tiempo";
+    climaCache=`${temp}°C, ${desc}`;
+    return climaCache;
+  }catch{
+    return null;
+  }
+}
+
+function getMoodAyer(){
+  try{
+    const hist=JSON.parse(localStorage.getItem("ca-mood-hist")||"[]");
+    const ayer=new Date();ayer.setDate(ayer.getDate()-1);
+    const ayerStr=ayer.toISOString().split("T")[0];
+    const reg=hist.find(h=>h.fecha===ayerStr);
+    if(!reg)return null;
+    return["muy mal","mal","más o menos","bien","muy bien"][reg.mood];
+  }catch{return null;}
+}
+
+function getContextoHora(){
+  const h=new Date().getHours();
+  if(h>=6&&h<12)return`Es por la mañana (${h}:${String(new Date().getMinutes()).padStart(2,"0")} hs)`;
+  if(h>=12&&h<14)return`Es mediodía (${h}:${String(new Date().getMinutes()).padStart(2,"0")} hs)`;
+  if(h>=14&&h<20)return`Es por la tarde (${h}:${String(new Date().getMinutes()).padStart(2,"0")} hs)`;
+  return`Es por la noche (${h}:${String(new Date().getMinutes()).padStart(2,"0")} hs)`;
+}
+
+async function getAIReply(text){
+  const persData=PERSONALIDADES[companion?.personalidad||"calida"];
+  const clima=await getClima();
+  const moodAyer=getMoodAyer();
+  const moodHoyLabel=moodHoy!==null?["muy mal","mal","más o menos","bien","muy bien"][moodHoy]:null;
+  const contextoHora=getContextoHora();
+
+  const contexto=[
+    `Hora actual: ${contextoHora}.`,
+    clima?`Clima actual: ${clima}.`:"",
+    moodHoyLabel?`Hoy la persona dijo que se siente ${moodHoyLabel}.`:"",
+    moodAyer?`Ayer se sintió ${moodAyer}.`:"",
+  ].filter(Boolean).join(" ");
+
+  const systemPrompt=`Sos ${companion?.nombre||"una compañera digital"}, la compañía digital de confianza de esta persona adulta mayor. ${persData.prompt}
+
+CONTEXTO ACTUAL: ${contexto}
+
+TU ROL: Sos como un amigo/a cercano que acompaña, escucha y cuida. No sos médico ni psicólogo. Tus consejos son como los de un amigo que se preocupa.
+
+CONSEJOS NATURALES: Durante la charla, cuando tenga sentido, podés mencionar cosas como:
+- Si es por la mañana: si tomó agua, si desayunó bien
+- Si es mediodía: recordar las pastillas que se toman con la comida (sin especificar cuáles)
+- Si el clima está lindo: sugerir salir a caminar unas cuadras, tomar un poco de sol
+- Si se sintió mal ayer o hoy: preguntar cómo sigue, sugerir llamar a alguien de confianza
+- Siempre: hidratación, moverse un poco, hablar con familia
+Hacelo de forma natural, como al pasar, sin sermones.
+
+FORMA DE HABLAR: Español rioplatense, palabras simples. Respuestas BREVES: 2 a 3 oraciones máximo porque la persona te escucha por voz. Cálido, cercano, nunca frío ni clínico.
+
+LÍMITES: Nunca des diagnósticos ni indiques medicamentos específicos. Si hay una emergencia, deciles que llamen al 107 (SAME) o al 911.`;
+
+  const messages=chatHistory.slice(-10).map(m=>({role:m.role==="ai"?"assistant":"user",content:m.content}));
+  const res=await fetch("https://api.anthropic.com/v1/messages",{
+    method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:1000,system:systemPrompt,messages})
+  });
+  const data=await res.json();
+  return data.content?.[0]?.text||"No pude responder, intentá de nuevo.";
+}
+
+async function sendTextMessage(text){
+  if(!text.trim())return;
+  const input=document.getElementById("chat-input");
+  if(input)input.value="";
+  chatHistory.push({role:"user",content:text,time:fmtHora()});
+  renderTextChat(document.getElementById("page-chat"));
+  const msgs=document.getElementById("chat-messages");
+  const typing=document.createElement("div");
+  typing.className="msg ai";typing.id="typing-indicator";
+  typing.innerHTML=`<div class="msg-avatar">${companion?.avatar||"💗"}</div><div class="typing-bubble"><div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div></div>`;
+  msgs?.appendChild(typing);msgs.scrollTop=msgs.scrollHeight;
+  try{
+    const reply=await getAIReply(text);
+    typing.remove();
+    chatHistory.push({role:"ai",content:reply,time:fmtHora()});
+    renderTextChat(document.getElementById("page-chat"));
+  }catch(e){
+    typing.remove();
+    chatHistory.push({role:"ai",content:"Tuve un problema. ¿Podés intentarlo de nuevo?",time:fmtHora()});
+    renderTextChat(document.getElementById("page-chat"));
+  }
+}
+
+// Mantener compatibilidad con sendMessage del inicio
+async function sendMessage(text){
+  if(voiceMode)await sendVoiceMessage(text);
+  else await sendTextMessage(text);
+}
+
+async function sendMessage(text){
+  if(!text.trim())return;
+  const input=document.getElementById("chat-input");
+  if(input)input.value="";
+  chatHistory.push({role:"user",content:text,time:fmtHora()});
+  renderChat();
+  // Mostrar typing
+  const msgs=document.getElementById("chat-messages");
+  const typing=document.createElement("div");
+  typing.className="msg ai";
+  typing.id="typing-indicator";
+  typing.innerHTML=`<div class="msg-avatar">${companion?.avatar||"💗"}</div><div class="typing-bubble"><div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div></div>`;
+  msgs?.appendChild(typing);
+  msgs.scrollTop=msgs.scrollHeight;
+  try{
+    const persData=PERSONALIDADES[companion?.personalidad||"calida"];
+    const systemPrompt=`Sos ${companion?.nombre||"una compañera digital"}, una compañía digital para adultos mayores. ${persData.prompt}
+Hablás siempre en español argentino, con palabras simples y claras. Nunca usás tecnicismos. Sos breve pero cálido/a: respuestas de 2 a 4 oraciones como máximo. 
+Recordá que la persona puede estar sola y necesita sentirse acompañada. Si menciona estar triste o con dolor, expresás empatía genuina y sugerís hablar con un familiar o médico de confianza.
+NUNCA des consejos médicos específicos. Si la persona menciona una emergencia, indicale que llame al 107 (SAME) o al 911.`;
+    const messages=[
+      ...chatHistory.slice(-10).map(m=>({role:m.role==="ai"?"assistant":"user",content:m.content}))
+    ];
+    const res=await fetch("https://api.anthropic.com/v1/messages",{
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({
+        model:"claude-sonnet-4-6",
+        max_tokens:1000,
+        system:systemPrompt,
+        messages
+      })
+    });
+    const data=await res.json();
+    const reply=data.content?.[0]?.text||"No pude responder, intentá de nuevo.";
+    typing.remove();
+    chatHistory.push({role:"ai",content:reply,time:fmtHora()});
+    renderChat();
+  }catch(e){
+    typing.remove();
+    chatHistory.push({role:"ai",content:"Tuve un problema para responder. ¿Podés intentarlo de nuevo?",time:fmtHora()});
+    renderChat();
+  }
+}
+
+// ── ÁNIMO ─────────────────────────────────────────────────
+function renderSalud(){
+  const el=document.getElementById("page-salud");
+  const moodEmojis=["😞","😕","😐","🙂","😊"];
+  const moodLabels=["Muy mal","Mal","Regular","Bien","Muy bien"];
+  const moodColors=["var(--red)","var(--warn)","var(--muted)","var(--green)","var(--coral)"];
+  // Historial de la semana desde localStorage
+  let historial=[];
+  try{historial=JSON.parse(localStorage.getItem("ca-mood-hist")||"[]");}catch{}
+  el.innerHTML=`
+    <div style="font-size:22px;font-weight:900;color:var(--text);margin-bottom:18px">😊 ¿Cómo estás hoy?</div>
+
+    <div class="card" style="margin-bottom:20px">
+      ${moodHoy!==null?`
+        <div style="text-align:center;padding:10px 0">
+          <div style="font-size:64px;margin-bottom:10px">${moodEmojis[moodHoy]}</div>
+          <div style="font-size:22px;font-weight:900;color:${moodColors[moodHoy]}">${moodLabels[moodHoy]}</div>
+          <div style="font-size:15px;color:var(--muted);margin-top:6px;font-weight:600">Registrado hoy</div>
+          <button style="margin-top:14px;padding:10px 20px;background:none;border:2px solid var(--border);border-radius:99px;font-size:14px;font-weight:700;color:var(--muted);cursor:pointer" id="btn-cambiar-mood2">Cambiar</button>
+        </div>`:`
+        <div style="font-size:16px;font-weight:700;color:var(--text);margin-bottom:14px">Tocá cómo te sentís:</div>
+        <div class="mood-grid">
+          ${moodEmojis.map((e,i)=>`<div class="mood-btn" data-mood="${i}">
+            <span class="mood-emoji">${e}</span>
+            <span class="mood-label">${moodLabels[i]}</span>
+          </div>`).join("")}
+        </div>`}
+    </div>
+
+    ${historial.length>0?`
+    <div style="font-size:18px;font-weight:800;color:var(--text);margin-bottom:12px">📅 Últimos días</div>
+    <div class="card">
+      ${historial.slice(-7).reverse().map(h=>`
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:1.5px solid var(--border)">
+          <div style="font-size:15px;font-weight:700;color:var(--muted)">${h.fecha}</div>
+          <div style="font-size:28px">${moodEmojis[h.mood]}</div>
+          <div style="font-size:15px;font-weight:700;color:${moodColors[h.mood]}">${moodLabels[h.mood]}</div>
+        </div>`).join("")}
+    </div>`:""}
+
+    <button id="btn-hablar-animo" style="width:100%;margin-top:8px;padding:18px;background:linear-gradient(135deg,var(--coral),#C94D33);border:none;border-radius:20px;font-size:18px;font-weight:800;color:#fff;cursor:pointer;font-family:var(--font);box-shadow:0 5px 0 var(--coral2)">
+      💬 Contárselo a ${companion?.nombre||"tu compañero/a"}
+    </button>`;
+
+  el.querySelectorAll(".mood-btn[data-mood]").forEach(btn=>{
+    btn.addEventListener("click",()=>{
+      const m=parseInt(btn.dataset.mood);
+      saveMood(m);
+      // Guardar en historial
+      try{
+        let hist=JSON.parse(localStorage.getItem("ca-mood-hist")||"[]");
+        const hoy=hoyStr();
+        hist=hist.filter(h=>h.fecha!==hoy);
+        hist.push({fecha:hoy,mood:m});
+        localStorage.setItem("ca-mood-hist",JSON.stringify(hist));
+      }catch{}
+      renderSalud();
+      toast("¡Gracias por contarme cómo estás! 💗");
+    });
+  });
+  el.querySelector("#btn-cambiar-mood2")?.addEventListener("click",()=>{saveMood(null);renderSalud();});
+  el.querySelector("#btn-hablar-animo")?.addEventListener("click",()=>{
+    voiceMode=true;
+    renderPage("chat");
+    const msg=moodHoy!==null?`Me siento ${["muy mal","mal","más o menos","bien","muy bien"][moodHoy]} hoy`:"¿Cómo puedo sentirme mejor hoy?";
+    setTimeout(()=>sendVoiceMessage(msg),300);
+  });
+}
+
+// ── PERFIL ─────────────────────────────────────────────────
+function renderPerfil(){
+  const el=document.getElementById("page-perfil");
+  const persData=PERSONALIDADES[companion?.personalidad||"calida"];
+  el.innerHTML=`
+    <div class="perfil-companion">
+      <div class="perfil-av">${companion?.avatar||"💗"}</div>
+      <div class="perfil-comp-name">${companion?.nombre||"—"}</div>
+      <div class="perfil-comp-pers">${persData.label}</div>
+    </div>
+    <div class="perfil-section">
+      <div class="perfil-section-title">👤 Mi cuenta</div>
+      <div class="perfil-row"><span class="perfil-label">Email</span><span class="perfil-val" style="font-size:14px">${me?.email||"—"}</span></div>
+      <div class="perfil-row"><span class="perfil-label">Estado</span><span class="perfil-val" style="color:var(--green)">${userDoc?.status==="activo"?"✅ Activo":"⏱ Demo"}</span></div>
+    </div>
+    <div class="perfil-section">
+      <div class="perfil-section-title">🎨 Cambiar compañero/a</div>
+      <button class="btn-outline" id="btn-reconfigurar">Reconfigurar compañero/a</button>
+    </div>
+    <button class="btn-danger" id="btn-logout-perfil" style="margin-top:8px">⏻ Cerrar sesión</button>`;
+
+  el.querySelector("#btn-logout-perfil")?.addEventListener("click",()=>signOut(auth));
+  el.querySelector("#btn-reconfigurar")?.addEventListener("click",()=>showScreen("screen-setup"));
+}
+
+
+</script>
+</body>
+</html>
