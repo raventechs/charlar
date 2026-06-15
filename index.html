@@ -1251,47 +1251,6 @@ function getContextoHora(){
   return`Es por la noche (${h}:${String(new Date().getMinutes()).padStart(2,"0")} hs)`;
 }
 
-async function getAIReply(text){
-  const persData=PERSONALIDADES[companion?.personalidad||"calida"];
-  const clima=await getClima();
-  const moodAyer=getMoodAyer();
-  const moodHoyLabel=moodHoy!==null?["muy mal","mal","más o menos","bien","muy bien"][moodHoy]:null;
-  const contextoHora=getContextoHora();
-
-  const contexto=[
-    `Hora actual: ${contextoHora}.`,
-    clima?`Clima actual: ${clima}.`:"",
-    moodHoyLabel?`Hoy la persona dijo que se siente ${moodHoyLabel}.`:"",
-    moodAyer?`Ayer se sintió ${moodAyer}.`:"",
-  ].filter(Boolean).join(" ");
-
-  const systemPrompt=`Sos ${companion?.nombre||"una compañera digital"}, la compañía digital de confianza de esta persona adulta mayor. ${persData.prompt}
-
-CONTEXTO ACTUAL: ${contexto}
-
-TU ROL: Sos como un amigo/a cercano que acompaña, escucha y cuida. No sos médico ni psicólogo. Tus consejos son como los de un amigo que se preocupa.
-
-CONSEJOS NATURALES: Durante la charla, cuando tenga sentido, podés mencionar cosas como:
-- Si es por la mañana: si tomó agua, si desayunó bien
-- Si es mediodía: recordar las pastillas que se toman con la comida (sin especificar cuáles)
-- Si el clima está lindo: sugerir salir a caminar unas cuadras, tomar un poco de sol
-- Si se sintió mal ayer o hoy: preguntar cómo sigue, sugerir llamar a alguien de confianza
-- Siempre: hidratación, moverse un poco, hablar con familia
-Hacelo de forma natural, como al pasar, sin sermones.
-
-FORMA DE HABLAR: Español rioplatense, palabras simples. Respuestas BREVES: 2 a 3 oraciones máximo porque la persona te escucha por voz. Cálido, cercano, nunca frío ni clínico.
-
-LÍMITES: Nunca des diagnósticos ni indiques medicamentos específicos. Si hay una emergencia, deciles que llamen al 107 (SAME) o al 911.`;
-
-  const messages=chatHistory.slice(-10).map(m=>({role:m.role==="ai"?"assistant":"user",content:m.content}));
-  const res=await fetch("https://api.anthropic.com/v1/messages",{
-    method:"POST",
-    headers:{"Content-Type":"application/json"},
-    body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:1000,system:systemPrompt,messages})
-  });
-  const data=await res.json();
-  return data.content?.[0]?.text||"No pude responder, intentá de nuevo.";
-}
 
 async function sendTextMessage(text){
   if(!text.trim())return;
@@ -1337,26 +1296,7 @@ async function sendMessage(text){
   msgs?.appendChild(typing);
   msgs.scrollTop=msgs.scrollHeight;
   try{
-    const persData=PERSONALIDADES[companion?.personalidad||"calida"];
-    const systemPrompt=`Sos ${companion?.nombre||"una compañera digital"}, una compañía digital para adultos mayores. ${persData.prompt}
-Hablás siempre en español argentino, con palabras simples y claras. Nunca usás tecnicismos. Sos breve pero cálido/a: respuestas de 2 a 4 oraciones como máximo. 
-Recordá que la persona puede estar sola y necesita sentirse acompañada. Si menciona estar triste o con dolor, expresás empatía genuina y sugerís hablar con un familiar o médico de confianza.
-NUNCA des consejos médicos específicos. Si la persona menciona una emergencia, indicale que llame al 107 (SAME) o al 911.`;
-    const messages=[
-      ...chatHistory.slice(-10).map(m=>({role:m.role==="ai"?"assistant":"user",content:m.content}))
-    ];
-    const res=await fetch("https://api.anthropic.com/v1/messages",{
-      method:"POST",
-      headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({
-        model:"claude-sonnet-4-6",
-        max_tokens:1000,
-        system:systemPrompt,
-        messages
-      })
-    });
-    const data=await res.json();
-    const reply=data.content?.[0]?.text||"No pude responder, intentá de nuevo.";
+    const reply=await getAIReply(text);
     typing.remove();
     chatHistory.push({role:"ai",content:reply,time:fmtHora()});
     renderChat();
