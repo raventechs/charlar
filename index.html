@@ -431,7 +431,6 @@ button,input,select,textarea{font-family:var(--font)}
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 <script>
-// 🔧 FIREBASE CONFIG
 const FB={
   apiKey:"AIzaSyBlftKE_pqK6afzv1pe8PS58sYlb2Z93Uk",
   authDomain:"charlar-e5408.firebaseapp.com",
@@ -442,14 +441,14 @@ const FB={
 };
 const ADMIN_PIN="1990";
 const DEMO_MS=24*60*60*1000;
+const GROQ_KEY="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";
+const GROQ_MODEL="llama-3.1-70b-versatile";
 
 firebase.initializeApp(FB);
 const auth=firebase.auth();
 const db=firebase.firestore();
 
-// Adaptar API compat a las funciones que usa el código
-const {GoogleAuthProvider,signInWithPopup,signInWithEmailAndPassword,
-       createUserWithEmailAndPassword,onAuthStateChanged,signOut}=firebase.auth;
+// ── Helpers Firestore compat ───────────────────────────────
 function _buildRef(base,parts){
   let ref=base;
   for(let i=0;i<parts.length;i++){
@@ -460,25 +459,14 @@ function _buildRef(base,parts){
 }
 function collection(d,...p){return _buildRef(d,p.join("/").split("/"));}
 function doc(d,...p){return _buildRef(d,p.join("/").split("/"));}
-function query(ref){return ref;}
-function orderBy(f,d="asc"){return{field:f,dir:d};}
-function where(f,op,v){return{field:f,op,val:v};}
-async function setDoc(ref,data,opts={}){
-  if(opts.merge)return ref.set(data,{merge:true});
-  return ref.set(data);
-}
+function serverTimestamp(){return firebase.firestore.FieldValue.serverTimestamp();}
+class Timestamp{static fromDate(d){return firebase.firestore.Timestamp.fromDate(d);}}
+async function setDoc(ref,data,opts={}){return opts.merge?ref.set(data,{merge:true}):ref.set(data);}
 async function getDoc(ref){return ref.get();}
 async function addDoc(ref,data){return ref.add(data);}
 async function getDocs(ref){return ref.get();}
 async function updateDoc(ref,data){return ref.update(data);}
 async function deleteDoc(ref){return ref.delete();}
-function serverTimestamp(){return firebase.firestore.FieldValue.serverTimestamp();}
-class Timestamp{static fromDate(d){return firebase.firestore.Timestamp.fromDate(d);}}
-
-// Adaptar métodos de auth
-const _ga=firebase.auth;
-firebase.auth=()=>auth;
-Object.assign(firebase.auth,_ga);
 
 // ── ESTADO ────────────────────────────────────────────────
 let me=null,userDoc=null,companion=null;
@@ -1090,6 +1078,155 @@ async function getClima(){
     const desc=code<=1?"despejado y lindo":code<=3?"nublado":code<=67?"con lluvia":"con mal tiempo";
     climaCache=`${temp}°C, ${desc}`;
     return climaCache;
+  }catch{return null;}
+}
+
+function getMoodAyer(){
+  try{
+    const hist=JSON.parse(localStorage.getItem("ca-mood-hist")||"[]");
+    const ayer=new Date();ayer.setDate(ayer.getDate()-1);
+    const ayerStr=ayer.toISOString().split("T")[0];
+    const reg=hist.find(h=>h.fecha===ayerStr);
+    if(!reg)return null;
+    return["muy mal","mal","más o menos","bien","muy bien"][reg.mood];
+  }catch{return null;}
+}
+
+function getContextoHora(){
+  const h=new Date().getHours();
+  if(h>=6&&h<12)return`Es por la mañana (${h}:${String(new Date().getMinutes()).padStart(2,"0")} hs)`;
+  if(h>=12&&h<14)return`Es mediodía (${h}:${String(new Date().getMinutes()).padStart(2,"0")} hs)`;
+  if(h>=14&&h<20)return`Es por la tarde (${h}:${String(new Date().getMinutes()).padStart(2,"0")} hs)`;
+  return`Es por la noche (${h}:${String(new Date().getMinutes()).padStart(2,"0")} hs)`;
+}
+
+async function getAIReply(text){
+  const persData=PERSONALIDADES[companion?.personalidad||"calida"];
+  const clima=await getClima();
+  const moodAyer=getMoodAyer();
+  const moodHoyLabel=moodHoy!==null?["muy mal","mal","más o menos","bien","muy bien"][moodHoy]:null;
+  const contextoHora=getContextoHora();
+  const contexto=[
+    `Hora actual: ${contextoHora}.`,
+    clima?`Clima actual: ${clima}.`:"",
+    moodHoyLabel?`Hoy la persona dijo que se siente ${moodHoyLabel}.`:"",
+    moodAyer?`Ayer se sintió ${moodAyer}.`:"",
+  ].filter(Boolean).join(" ");
+  const systemPrompt=`Sos ${companion?.nombre||"una compañera digital"}, la compañía digital de confianza de esta persona adulta mayor. ${persData.prompt}
+CONTEXTO ACTUAL: ${contexto}
+TU ROL: Sos como un amigo/a cercano que acompaña, escucha y cuida. No sos médico ni psicólogo. Tus consejos son como los de un amigo que se preocupa.
+CONSEJOS NATURALES: Durante la charla, cuando tenga sentido, podés mencionar cosas como:
+- Si es por la mañana: si tomó agua, si desayunó bien
+- Si es mediodía: recordar las pastillas que se toman con la comida (sin especificar cuáles)
+- Si el clima está lindo: sugerir salir a caminar unas cuadras, tomar un poco de sol
+- Si se sintió mal ayer o hoy: preguntar cómo sigue, sugerir llamar a alguien de confianza
+Hacelo de forma natural, como al pasar, sin sermones.
+FORMA DE HABLAR: Español rioplatense, palabras simples. Respuestas BREVES: 2 a 3 oraciones máximo porque la persona te escucha por voz. Cálido, cercano, nunca frío ni clínico.
+LÍMITES: Nunca des diagnósticos ni indiques medicamentos específicos. Si hay una emergencia, deciles que llamen al 107 (SAME) o al 911.`;
+  const messages=chatHistory.slice(-10).map(m=>({role:m.role==="ai"?"assistant":"user",content:m.content}));
+  const res=await fetch("https://api.groq.com/openai/v1/chat/completions",{
+    method:"POST",
+    headers:{
+      "Content-Type":"application/json",
+      "Authorization":"Bearer "+GROQ_KEY
+    },
+    body:JSON.stringify({
+      model:GROQ_MODEL,
+      max_tokens:200,
+      messages:[{role:"system",content:systemPrompt},...messages]
+    })
+  });
+  const data=await res.json();
+  return data.choices?.[0]?.message?.content||"No pude responder, intentá de nuevo.";
+}
+
+async function sendVoiceMessage(text){
+  if(!text.trim())return;
+  chatHistory.push({role:"user",content:text,time:fmtHora()});
+  const lastMsg=document.getElementById("voice-last-msg");
+  if(lastMsg){lastMsg.className="voice-last-msg show";lastMsg.textContent="Vos: "+text;}
+  // Estado: procesando
+  const status=document.getElementById("voice-status");
+  if(status){status.className="voice-status";status.textContent="Pensando...";}
+  try{
+    const reply=await getAIReply(text);
+    chatHistory.push({role:"ai",content:reply,time:fmtHora()});
+    if(lastMsg){lastMsg.textContent=reply;}
+    speakText(reply,()=>{updateVoiceUI();});
+  }catch(e){
+    const errMsg="Tuve un problema. ¿Podés intentarlo de nuevo?";
+    speakText(errMsg);
+  }
+}
+
+function renderTextChat(el){
+  el.innerHTML=`
+    <div class="chat-wrap">
+      <div style="padding:10px 16px;border-bottom:2px solid var(--border);display:flex;align-items:center;gap:10px;background:var(--surface)">
+        <button class="btn-switch-text" id="btn-switch-voice" style="font-size:15px;font-weight:700;color:var(--coral);text-decoration:none;border:2px solid var(--coral);padding:6px 14px;border-radius:99px;background:none;cursor:pointer;font-family:var(--font)">🎤 Volver a voz</button>
+        <span style="font-size:14px;color:var(--muted);font-weight:600">Modo escritura</span>
+      </div>
+      <div class="chat-messages" id="chat-messages">
+        ${chatHistory.length===0?`<div style="text-align:center;padding:24px 0">
+          <div style="font-size:48px;margin-bottom:12px">${companion?.avatar||"💗"}</div>
+          <div style="font-size:18px;font-weight:700;color:var(--text);margin-bottom:6px">Hola, soy ${companion?.nombre||"tu compañero/a"}</div>
+          <div style="font-size:15px;color:var(--muted);font-weight:600">¿De qué querés hablar hoy?</div>
+        </div>`:""}
+        ${chatHistory.map(m=>msgHTML(m)).join("")}
+      </div>
+      <div style="padding:10px 16px 0">
+        <button id="btn-consejo-chat" style="width:100%;padding:14px;background:var(--warm2);border:2.5px solid var(--coral);border-radius:14px;font-size:16px;font-weight:800;color:var(--coral);cursor:pointer;font-family:var(--font);margin-bottom:8px">
+          💡 Pedirle un consejo a ${companion?.nombre||"tu compañero/a"}
+        </button>
+      </div>
+      <div class="quick-replies">
+        <button class="quick-btn" data-q="¿Cómo estás hoy?">¿Cómo estás?</button>
+        <button class="quick-btn" data-q="Contame algo lindo">Algo lindo 🌸</button>
+        <button class="quick-btn" data-q="Me siento un poco solo/a hoy">Me siento solo/a</button>
+        <button class="quick-btn" data-q="Contame un chiste">Un chiste 😄</button>
+        <button class="quick-btn" data-q="¿Qué puedo hacer hoy para sentirme mejor?">Sentirme mejor</button>
+      </div>
+      <div class="chat-input-wrap">
+        <textarea class="chat-input" id="chat-input" placeholder="Escribí lo que quieras..." rows="1"></textarea>
+        <button class="chat-send-btn" id="chat-send">➤</button>
+      </div>
+    </div>`;
+
+  const msgs=el.querySelector("#chat-messages");
+  msgs.scrollTop=msgs.scrollHeight;
+  el.querySelector("#btn-switch-voice")?.addEventListener("click",()=>{voiceMode=true;renderChat();});
+  el.querySelector("#btn-consejo-chat")?.addEventListener("click",()=>sendTextMessage("¿Me podés dar un consejo para hoy?"));
+  el.querySelectorAll(".quick-btn[data-q]").forEach(btn=>{
+    btn.addEventListener("click",()=>sendTextMessage(btn.dataset.q));
+  });
+  const input=el.querySelector("#chat-input");
+  input?.addEventListener("keydown",e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();sendTextMessage(input.value.trim());}});
+  input?.addEventListener("input",()=>{input.style.height="auto";input.style.height=Math.min(input.scrollHeight,120)+"px";});
+  el.querySelector("#chat-send")?.addEventListener("click",()=>sendTextMessage(input?.value.trim()||""));
+}
+
+function msgHTML(m){
+  return`<div class="msg ${m.role}">
+    ${m.role==="ai"?`<div class="msg-avatar">${companion?.avatar||"💗"}</div>`:""}
+    <div class="msg-bubble">${m.content}</div>
+    <div class="msg-time">${m.time||""}</div>
+  </div>`;
+}
+
+// ── CONTEXTO PARA LA IA ───────────────────────────────────
+let climaCache=null;
+async function getClima(){
+  if(climaCache)return climaCache;
+  try{
+    const pos=await new Promise((res,rej)=>navigator.geolocation.getCurrentPosition(res,rej,{timeout:4000}));
+    const {latitude:lat,longitude:lon}=pos.coords;
+    const r=await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,weathercode&timezone=auto`);
+    const d=await r.json();
+    const temp=Math.round(d.current.temperature_2m);
+    const code=d.current.weathercode;
+    const desc=code<=1?"despejado y lindo":code<=3?"nublado":code<=67?"con lluvia":"con mal tiempo";
+    climaCache=`${temp}°C, ${desc}`;
+    return climaCache;
   }catch{
     return null;
   }
@@ -1183,6 +1320,51 @@ async function sendTextMessage(text){
 async function sendMessage(text){
   if(voiceMode)await sendVoiceMessage(text);
   else await sendTextMessage(text);
+}
+
+async function sendMessage(text){
+  if(!text.trim())return;
+  const input=document.getElementById("chat-input");
+  if(input)input.value="";
+  chatHistory.push({role:"user",content:text,time:fmtHora()});
+  renderChat();
+  // Mostrar typing
+  const msgs=document.getElementById("chat-messages");
+  const typing=document.createElement("div");
+  typing.className="msg ai";
+  typing.id="typing-indicator";
+  typing.innerHTML=`<div class="msg-avatar">${companion?.avatar||"💗"}</div><div class="typing-bubble"><div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div></div>`;
+  msgs?.appendChild(typing);
+  msgs.scrollTop=msgs.scrollHeight;
+  try{
+    const persData=PERSONALIDADES[companion?.personalidad||"calida"];
+    const systemPrompt=`Sos ${companion?.nombre||"una compañera digital"}, una compañía digital para adultos mayores. ${persData.prompt}
+Hablás siempre en español argentino, con palabras simples y claras. Nunca usás tecnicismos. Sos breve pero cálido/a: respuestas de 2 a 4 oraciones como máximo. 
+Recordá que la persona puede estar sola y necesita sentirse acompañada. Si menciona estar triste o con dolor, expresás empatía genuina y sugerís hablar con un familiar o médico de confianza.
+NUNCA des consejos médicos específicos. Si la persona menciona una emergencia, indicale que llame al 107 (SAME) o al 911.`;
+    const messages=[
+      ...chatHistory.slice(-10).map(m=>({role:m.role==="ai"?"assistant":"user",content:m.content}))
+    ];
+    const res=await fetch("https://api.anthropic.com/v1/messages",{
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({
+        model:"claude-sonnet-4-6",
+        max_tokens:1000,
+        system:systemPrompt,
+        messages
+      })
+    });
+    const data=await res.json();
+    const reply=data.content?.[0]?.text||"No pude responder, intentá de nuevo.";
+    typing.remove();
+    chatHistory.push({role:"ai",content:reply,time:fmtHora()});
+    renderChat();
+  }catch(e){
+    typing.remove();
+    chatHistory.push({role:"ai",content:"Tuve un problema para responder. ¿Podés intentarlo de nuevo?",time:fmtHora()});
+    renderChat();
+  }
 }
 
 // ── ÁNIMO ─────────────────────────────────────────────────
