@@ -1138,6 +1138,35 @@ function msgHTML(m){
     <div class="msg-time">${m.time||""}</div>
   </div>`;
 }
+
+async function sendTextMessage(text){
+  if(!text||!text.trim())return;
+  const input=document.getElementById("chat-input");
+  if(input)input.value="";
+  chatHistory.push({role:"user",content:text,time:fmtHora()});
+  renderTextChat(document.getElementById("page-chat"));
+  const msgs=document.getElementById("chat-messages");
+  const typing=document.createElement("div");
+  typing.className="msg ai";
+  typing.innerHTML=`<div class="msg-avatar">${companion?.avatar||"💗"}</div><div class="typing-bubble"><div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div></div>`;
+  msgs?.appendChild(typing);
+  if(msgs)msgs.scrollTop=msgs.scrollHeight;
+  try{
+    const reply=await getAIReply(text);
+    typing.remove();
+    chatHistory.push({role:"ai",content:reply,time:fmtHora()});
+    renderTextChat(document.getElementById("page-chat"));
+  }catch(e){
+    typing.remove();
+    chatHistory.push({role:"ai",content:"Tuve un problema. ¿Podés intentarlo de nuevo?",time:fmtHora()});
+    renderTextChat(document.getElementById("page-chat"));
+  }
+}
+
+async function sendMessage(text){
+  if(voiceMode)await sendVoiceMessage(text);
+  else await sendTextMessage(text);
+}
 }); // DOMContentLoaded
 </script>
 </body>
