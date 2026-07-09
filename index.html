@@ -427,7 +427,45 @@ button,input,select,textarea{font-family:var(--font)}
 
 <div id="toast-wrap"></div>
 
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js">
+// ── P5: logError ─────────────────────────────────────────
+async function logError(origen, mensaje, extra={}) {
+  try {
+    await db.collection('errores').add({
+      origen, mensaje,
+      extra: JSON.stringify(extra),
+      ts: firebase.firestore.FieldValue.serverTimestamp()
+    });
+  } catch(e) { console.error('logError failed:', e); }
+}
+
+
+// ── P3: Service Worker ────────────────────────────────────
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('./sw-charlar.js')
+    .then(() => console.log('SW CharlAR registrado'))
+    .catch(e => console.warn('SW error:', e));
+}
+
+
+// ── P2: Exportar CSV ─────────────────────────────────────
+function exportarCSV() {
+  try {
+    const rows = [['Fecha','Usuario','Mensaje','Autor']];
+    document.querySelectorAll('.msg').forEach(m => {
+      const texto = m.querySelector('.msg-text,.msg-bubble')?.innerText || '';
+      const autor = m.classList.contains('user') ? 'Usuario' : 'CharlAR';
+      rows.push([new Date().toLocaleDateString('es-AR'), 'Usuario', texto.replace(/,/g,''), autor]);
+    });
+    const csv = rows.map(r => r.join(',')).join('\n');
+    const a = document.createElement('a');
+    a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv);
+    a.download = 'charlar-conversacion-' + new Date().toISOString().slice(0,10) + '.csv';
+    a.click();
+  } catch(e) { logError('exportarCSV', e.message); }
+}
+
+</script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 <script>
@@ -440,7 +478,7 @@ const FB={
   messagingSenderId:"471550179133",
   appId:"1:471550179133:web:3c06e945f81eb9fd477754"
 };
-const ADMIN_PIN="1990";
+const ADMIN_PIN="2580";
 const DEMO_MS=24*60*60*1000;
 const GROQ_KEY="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";
 const GROQ_MODEL="llama-3.1-8b-instant";
