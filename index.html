@@ -4,6 +4,7 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>CharlAR</title>
+<!-- CharlAR v1.1 — 2026-08-01 — Seguridad: sanitizar() anti-XSS (crítico: mensajes de chat sin escapar), App Check SDK preparado -->
 <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet"/>
 <style>
 :root{
@@ -550,6 +551,7 @@ function exportarCSV() {
 }
 
 </script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-check-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 <script>
@@ -568,8 +570,22 @@ const GROQ_KEY="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";
 const GROQ_MODEL="llama-3.1-8b-instant";
 
 firebase.initializeApp(FB);
+var APPCHECK_KEY = '';
+if (APPCHECK_KEY && typeof firebase.appCheck === 'function') {
+  firebase.appCheck().activate(
+    new firebase.appCheck.ReCaptchaV3Provider(APPCHECK_KEY), true);
+}
 const auth=firebase.auth();
 const db=firebase.firestore();
+
+function sanitizar(txt) {
+  return String(txt || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
 
 // ── Helpers Firestore compat ───────────────────────────────
 function _buildRef(base,parts){
@@ -688,8 +704,8 @@ async function loadAdminUsers(){
       </div>`;
     }
     return`<div class="admin-card">
-      <div class="admin-card-title">${u.email||d.id}${ban?'<span class="ban-badge">BANEADO</span>':""} ${demoBadge}</div>
-      <div class="admin-card-sub">${u.companionName||"Sin configurar"}</div>
+      <div class="admin-card-title">${sanitizar(u.email||d.id)}${ban?'<span class="ban-badge">BANEADO</span>':""} ${demoBadge}</div>
+      <div class="admin-card-sub">${sanitizar(u.companionName)||"Sin configurar"}</div>
       ${demoInfo}
       <div class="admin-card-actions" style="margin-top:10px">
         ${ban?`<button class="btn-aunban" data-uid="${d.id}">✅ Desbanear</button>`:`<button class="btn-aban" data-uid="${d.id}">🚫 Banear</button>`}
@@ -874,13 +890,13 @@ function renderInicio(){
     <div class="companion-banner">
       <div class="companion-avatar">${companion?.avatar||"💗"}</div>
       <div>
-        <div class="companion-name">${companion?.nombre||"Tu compañero/a"}</div>
+        <div class="companion-name">${sanitizar(companion?.nombre)||"Tu compañero/a"}</div>
         <div class="companion-status"><span class="companion-dot"></span>En línea, esperándote</div>
       </div>
     </div>
 
     <div class="card" style="margin-bottom:20px">
-      <div class="card-title" style="font-size:20px">${saludo}, ${nombre}! ¿Cómo estás hoy?</div>
+      <div class="card-title" style="font-size:20px">${saludo}, ${sanitizar(nombre)}! ¿Cómo estás hoy?</div>
       ${moodHoy!==null?`
         <div style="text-align:center;padding:10px 0">
           <div style="font-size:56px;margin-bottom:8px">${moodEmojis[moodHoy]}</div>
@@ -898,12 +914,12 @@ function renderInicio(){
     </div>
 
     <button class="btn-primary" id="btn-ir-chat" style="font-size:20px;padding:22px;border-radius:20px">
-      💬 Charlar con ${companion?.nombre||"tu compañero/a"}
+      💬 Charlar con ${sanitizar(companion?.nombre)||"tu compañero/a"}
     </button>
 
     ${moodHoy!==null?`
     <button id="btn-consejo-inicio" style="width:100%;margin-top:12px;padding:18px;background:var(--warm2);border:2.5px solid var(--coral);border-radius:20px;font-size:18px;font-weight:800;color:var(--coral);cursor:pointer;font-family:var(--font)">
-      💡 Pedirle un consejo a ${companion?.nombre||"tu compañero/a"}
+      💡 Pedirle un consejo a ${sanitizar(companion?.nombre)||"tu compañero/a"}
     </button>`:""}`;
 
   el.querySelectorAll(".mood-btn[data-mood]").forEach(btn=>{
@@ -1054,9 +1070,9 @@ function renderVoiceChat(el){
           <div class="voice-rings"></div>
           <div class="voice-avatar" id="voice-avatar">${companion?.avatar||"💗"}</div>
         </div>
-        <div class="voice-name">${companion?.nombre||"Tu compañero/a"}</div>
-        <div class="voice-status" id="voice-status">${companion?.nombre||"Tu compañero/a"} está lista para escucharte</div>
-        ${lastAI?`<div class="voice-last-msg show" id="voice-last-msg">${lastAI.content}</div>`:`<div class="voice-last-msg" id="voice-last-msg"></div>`}
+        <div class="voice-name">${sanitizar(companion?.nombre)||"Tu compañero/a"}</div>
+        <div class="voice-status" id="voice-status">${sanitizar(companion?.nombre)||"Tu compañero/a"} está lista para escucharte</div>
+        ${lastAI?`<div class="voice-last-msg show" id="voice-last-msg">${sanitizar(lastAI.content)}</div>`:`<div class="voice-last-msg" id="voice-last-msg"></div>`}
         <div class="voice-transcript" id="voice-transcript"></div>
       </div>
       <div class="voice-btn-area">
@@ -1217,14 +1233,14 @@ function renderTextChat(el){
       <div class="chat-messages" id="chat-messages">
         ${chatHistory.length===0?`<div style="text-align:center;padding:24px 0">
           <div style="font-size:48px;margin-bottom:12px">${companion?.avatar||"💗"}</div>
-          <div style="font-size:18px;font-weight:700;color:var(--text);margin-bottom:6px">Hola, soy ${companion?.nombre||"tu compañero/a"}</div>
+          <div style="font-size:18px;font-weight:700;color:var(--text);margin-bottom:6px">Hola, soy ${sanitizar(companion?.nombre)||"tu compañero/a"}</div>
           <div style="font-size:15px;color:var(--muted);font-weight:600">¿De qué querés hablar hoy?</div>
         </div>`:""}
         ${chatHistory.map(m=>msgHTML(m)).join("")}
       </div>
       <div style="padding:10px 16px 0">
         <button id="btn-consejo-chat" style="width:100%;padding:14px;background:var(--warm2);border:2.5px solid var(--coral);border-radius:14px;font-size:16px;font-weight:800;color:var(--coral);cursor:pointer;font-family:var(--font);margin-bottom:8px">
-          💡 Pedirle un consejo a ${companion?.nombre||"tu compañero/a"}
+          💡 Pedirle un consejo a ${sanitizar(companion?.nombre)||"tu compañero/a"}
         </button>
       </div>
       <div class="quick-replies">
@@ -1256,7 +1272,7 @@ function renderTextChat(el){
 function msgHTML(m){
   return`<div class="msg ${m.role}">
     ${m.role==="ai"?`<div class="msg-avatar">${companion?.avatar||"💗"}</div>`:""}
-    <div class="msg-bubble">${m.content}</div>
+    <div class="msg-bubble">${sanitizar(m.content)}</div>
     <div class="msg-time">${m.time||""}</div>
   </div>`;
 }
