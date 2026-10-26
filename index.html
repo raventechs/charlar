@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<!-- CharlAR 1.1 — 2026-10-26 — BACKUP (no tenía): automático diario + manual + restaurar, en Perfil. Se agregan las pestañas Perfil y Ánimo, que daban error. Se corrige una etiqueta de script mal cerrada que impedía registrar el Service Worker y el registro de errores. -->
 <title>CharlAR</title>
 <meta name="theme-color" content="#8E44AD">
 <meta name="mobile-web-app-capable" content="yes">
@@ -552,11 +553,12 @@ var __rtPWA = (function() {
 
 <div id="toast-wrap"></div>
 
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js">
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script>
 // ── P5: logError ─────────────────────────────────────────
 async function logError(origen, mensaje, extra={}) {
   try {
-    await db.collection('errores').add({
+    await firebase.firestore().collection('errores').add({
       origen, mensaje,
       extra: JSON.stringify(extra),
       ts: firebase.firestore.FieldValue.serverTimestamp()
@@ -768,6 +770,160 @@ function getDemoRestante(data){
   const expiry=data.demoExpiry?.toMillis?.()||start+DEMO_MS;
   return expiry-Date.now();
 }
+// ══════════ BACKUP ESTÁNDAR 1.1 ══════════
+// Automático: una vez por día al entrar el dueño. Baja el archivo JSON al dispositivo y deja una copia en IndexedDB (las últimas 7).
+// Manual y restaurar: botones de la sección de backup. Las fechas de Firestore (Timestamp) se guardan con una marca reversible.
+// Está dentro del módulo de la app (antes estaba en un script aparte que no veía db, auth ni getDocs y fallaba siempre).
+function _bkHoy() {
+  const d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+function _bkSer(v) {
+  if (v && typeof v === 'object') {
+    if (typeof v.toMillis === 'function' && 'seconds' in v && 'nanoseconds' in v) return { __ts: [v.seconds, v.nanoseconds] };
+    if (Array.isArray(v)) return v.map(_bkSer);
+    const o = {}; Object.keys(v).forEach(k => { o[k] = _bkSer(v[k]); }); return o;
+  }
+  return v;
+}
+function _bkRev(v) {
+  if (v && typeof v === 'object') {
+    if (Array.isArray(v)) return v.map(_bkRev);
+    if (Array.isArray(v.__ts) && v.__ts.length === 2) return new firebase.firestore.Timestamp(v.__ts[0], v.__ts[1]);
+    const o = {}; Object.keys(v).forEach(k => { o[k] = _bkRev(v[k]); }); return o;
+  }
+  return v;
+}
+async function _bkLeer(ref) {
+  const s = await ref.get();
+  return s.docs.map(d => Object.assign({ _id: d.id }, _bkSer(d.data())));
+}
+function _bkIdb(fecha, json) {
+  return new Promise(function (res) {
+    try {
+      const rq = indexedDB.open('charlar-backup', 1);
+      rq.onupgradeneeded = function () { rq.result.createObjectStore('b', { keyPath: 'fecha' }); };
+      rq.onsuccess = function () {
+        const idb = rq.result, tx = idb.transaction('b', 'readwrite'), st = tx.objectStore('b');
+        st.put({ fecha: fecha, json: json });
+        st.getAllKeys().onsuccess = function (e) { const ks = e.target.result.sort(); while (ks.length > 7) st.delete(ks.shift()); };
+        tx.oncomplete = function () { idb.close(); res(true); };
+        tx.onerror = tx.onabort = function () { idb.close(); res(false); };
+      };
+      rq.onerror = function () { res(false); };
+    } catch (e) { res(false); }
+  });
+}
+function _bkDescargar(json, fecha) {
+  const blob = new Blob([json], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'charlar-backup-' + fecha + '.json';
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(function () { URL.revokeObjectURL(url); }, 4000);
+}
+async function _bkDocs(q) { const s = await getDocs(q); return s.docs.map(function (d) { return Object.assign({ _id: d.id }, _bkSer(d.data())); }); }
+async function _bkEscribir(ops) {
+  for (let i = 0; i < ops.length; i += 25)
+    await Promise.all(ops.slice(i, i + 25).map(function (o) { return o[2] ? setDoc(o[0], o[1], { merge: true }) : setDoc(o[0], o[1]); }));
+}
+function _bkCfg() { return { app: 'CharlAR', ver: '1.1', ls: 'charlar-ultimo-backup', label: 'ultimoBackupFecha' }; }
+function _bkMsg(m, t) { toast(m, t === 'err' ? 'err' : ''); }
+function _bkCtx() {
+  if (!me || !userDoc) return { ok: false, msg: 'Iniciá sesión primero' };
+  return { ok: true, uid: me.uid, auto: true };
+}
+function _bkLs(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
+// Qué se guarda: tu compañero/a (nombre, avatar, personalidad) y tu historial de ánimo (vive en este dispositivo).
+// La charla no se guarda en ningún lado, por eso no hay nada que respaldar de ahí. El plan/demo de la cuenta NO se restaura.
+async function _bkReunir(C) {
+  const c = await getDoc(doc(db, 'usuarios', C.uid, 'config', 'companion'));
+  let hist = null, mood = null; try { hist = JSON.parse(_bkLs('ca-mood-hist') || 'null'); } catch (e) {} try { mood = JSON.parse(_bkLs('ca-mood') || 'null'); } catch (e) {}
+  return { companion: c.exists ? _bkSer(c.data()) : null, animo: { historial: hist, hoy: mood }, cuenta: { email: me.email || '' } };
+}
+function _bkOps(bk, C) {
+  const ops = [];
+  if (bk.companion && typeof bk.companion === 'object') ops.push([doc(db, 'usuarios', C.uid, 'config', 'companion'), _bkRev(bk.companion)]);
+  if (!ops.length && !(bk.animo && bk.animo.historial)) throw new Error('el archivo no tiene datos para restaurar');
+  if (bk.animo && Array.isArray(bk.animo.historial)) { try { localStorage.setItem('ca-mood-hist', JSON.stringify(bk.animo.historial)); } catch (e) {} }
+  return ops;
+}
+function _bkMontarUI(el) {
+  if (!el || el.querySelector('#bkCard')) return;
+  const K = _bkCfg();
+  const d = document.createElement('div'); d.className = 'card'; d.id = 'bkCard';
+  d.innerHTML = '<div class="card-title">💾 Backup de datos</div>' +
+    '<p style="font-size:14px;color:var(--muted);margin-bottom:12px">Una copia de tu compañero/a (nombre, avatar y personalidad) y de tu historial de ánimo. Se baja sola una vez por día al entrar; también podés bajarla cuando quieras o restaurar una anterior.</p>' +
+    '<button class="btn-outline" id="bkBtnGen" style="margin-top:0">📥 Descargar backup ahora</button>' +
+    '<button class="btn-outline" id="bkBtnRest">📤 Restaurar desde un archivo</button>' +
+    '<input type="file" id="inputRestaurarBackup" accept=".json,application/json" style="display:none">' +
+    '<p style="font-size:12px;color:var(--muted);margin-top:10px">Último backup: <span id="ultimoBackupFecha">—</span></p>';
+  el.appendChild(d);
+  d.querySelector('#bkBtnGen').addEventListener('click', function () { generarBackup(false); });
+  d.querySelector('#bkBtnRest').addEventListener('click', function () { d.querySelector('#inputRestaurarBackup').click(); });
+  d.querySelector('#inputRestaurarBackup').addEventListener('change', function () { restaurarBackup(this); });
+  const ultimo = _bkLs(K.ls); if (ultimo) d.querySelector('#ultimoBackupFecha').textContent = ultimo;
+}
+// Las pestañas "Perfil" y "Ánimo" llamaban a funciones que no existían (daban error al tocarlas). Se agregan versiones simples.
+function renderPerfil() {
+  const el = document.getElementById('page-perfil'); if (!el) return;
+  const c = companion || {};
+  el.innerHTML = '<div class="card"><div class="card-title">👤 Mi cuenta</div>' +
+    '<p style="font-size:15px;font-weight:600;margin-bottom:6px"></p>' +
+    '<p style="font-size:14px;color:var(--muted)"></p></div>';
+  const ps = el.querySelectorAll('.card p'); ps[0].textContent = (me && me.email) || '—'; ps[1].textContent = 'Tu compañero/a: ' + (c.nombre || '—');
+  _bkMontarUI(el);
+}
+function renderSalud() {
+  const el = document.getElementById('page-salud'); if (!el) return;
+  const emojis = ['😞', '😕', '😐', '🙂', '😊'], labels = ['Muy mal', 'Mal', 'Regular', 'Bien', 'Muy bien'];
+  let txt = 'Todavía no registraste cómo te sentís hoy. Hacelo desde Inicio.';
+  if (moodHoy !== null && moodHoy !== undefined) txt = 'Hoy te sentís: ' + emojis[moodHoy] + ' ' + labels[moodHoy];
+  el.innerHTML = '<div class="card"><div class="card-title">😊 Mi ánimo</div><p style="font-size:15px"></p></div>';
+  el.querySelector('p').textContent = txt;
+}
+
+async function generarBackup(silencioso) {
+  const K = _bkCfg(), C = _bkCtx();
+  if (!C.ok) { if (!silencioso) _bkMsg(C.msg, 'err'); return; }
+  try {
+    if (!silencioso) _bkMsg('Preparando backup…');
+    const datos = await _bkReunir(C);
+    const fecha = _bkHoy();
+    const json = JSON.stringify(Object.assign({ app: K.app, version: K.ver, fecha: new Date().toISOString(), uid: C.uid }, datos));
+    _bkDescargar(json, fecha);
+    await _bkIdb(fecha, json);
+    try { localStorage.setItem(K.ls, fecha); } catch (e) {}
+    const el = document.getElementById(K.label); if (el) el.textContent = fecha;
+    if (!silencioso) _bkMsg('✅ Backup descargado');
+  } catch (e) { logError('generarBackup', e.message); if (!silencioso) _bkMsg('Error al generar backup: ' + e.message, 'err'); }
+}
+async function restaurarBackup(input) {
+  const K = _bkCfg(), C = _bkCtx();
+  const file = input.files && input.files[0];
+  if (!file) return;
+  try {
+    if (!C.ok) { _bkMsg(C.msg, 'err'); return; }
+    const bk = JSON.parse(await file.text());
+    if (bk.app !== K.app) { _bkMsg('El archivo no es un backup de ' + K.app, 'err'); return; }
+    const ops = _bkOps(bk, C);
+    if (!confirm('Se van a volver a cargar ' + ops.length + ' registros en tu cuenta. Los que ya existen se reemplazan por los del archivo; el resto queda como está. ¿Continuar?')) return;
+    _bkMsg('Restaurando…');
+    await _bkEscribir(ops);
+    _bkMsg('✅ Backup restaurado (' + ops.length + ' registros)');
+    setTimeout(function () { location.reload(); }, 1500);
+  } catch (e) { logError('restaurarBackup', e.message); _bkMsg('Error al restaurar: ' + e.message, 'err'); }
+  finally { input.value = ''; }
+}
+function chequearBackupDiario() {
+  const K = _bkCfg(), C = _bkCtx();
+  if (!C.ok) return;
+  let ultimo = null; try { ultimo = localStorage.getItem(K.ls); } catch (e) {}
+  const el = document.getElementById(K.label); if (el && ultimo) el.textContent = ultimo;
+  if (ultimo !== _bkHoy()) setTimeout(function () { generarBackup(true); }, 5000);
+}
+window.generarBackup = generarBackup; window.restaurarBackup = restaurarBackup;
+// ══════════ FIN BACKUP ══════════
 function checkDemo(){
   if(!userDoc)return;
   const restante=getDemoRestante(userDoc);
@@ -806,6 +962,7 @@ auth.onAuthStateChanged(async user=>{
       showScreen("screen-app");
       renderPage("inicio");
       checkDemo();
+      chequearBackupDiario();   // v1.1: backup automático diario
     } else {
       showScreen("screen-setup");
     }
