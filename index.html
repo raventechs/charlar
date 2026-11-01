@@ -1107,7 +1107,7 @@ document.getElementById("btn-auth").addEventListener("click",async()=>{
 document.getElementById("btn-google").addEventListener("click",async()=>{
   const btn=document.getElementById("btn-google");btn.disabled=true;btn.textContent="Conectando...";
   try{const provider=(window.rtProv||function(p){return p})(new firebase.auth.GoogleAuthProvider());await auth.signInWithPopup(provider);}
-  catch(e){const errEl=document.getElementById("auth-err");errEl.textContent="Error con Google. Intentá de nuevo.";errEl.style.display="block";errEl.classList.add("show");}
+  catch(e){const errEl=document.getElementById("auth-err");if(e&&(e.code==="auth/popup-closed-by-user"||e.code==="auth/cancelled-popup-request"))return;errEl.textContent="Error con Google. Intentá de nuevo."+(e&&e.code?" ("+e.code+")":"");errEl.style.display="block";errEl.classList.add("show");}
   btn.disabled=false;btn.textContent="Entrar con Google";
 });
 document.getElementById("btn-logout").addEventListener("click",()=>auth.signOut());
