@@ -977,6 +977,7 @@ function renderPerfil() {
     '<p style="font-size:15px;font-weight:600;margin-bottom:6px"></p>' +
     '<p style="font-size:14px;color:var(--muted)"></p></div>';
   const ps = el.querySelectorAll('.card p'); ps[0].textContent = (me && me.email) || '—'; ps[1].textContent = 'Tu compañero/a: ' + (c.nombre || '—');
+  el.insertAdjacentHTML('beforeend', '<div class="card" style="margin-top:12px"><h3 style="font-size:1rem;margin:0 0 6px">❓ Instructivo</h3><p style="font-size:13px;opacity:.8;margin-bottom:10px">Guía paso a paso de cómo usar la app, con preguntas frecuentes.</p><a href="ayuda/" target="_blank" rel="noopener" style="display:inline-block;padding:10px 16px;border-radius:10px;background:#25D366;color:#fff;font-weight:700;text-decoration:none">📖 Abrir instructivo</a></div>');
   _bkMontarUI(el);
 }
 function renderSalud() {
