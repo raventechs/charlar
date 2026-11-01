@@ -712,8 +712,8 @@ const FB={
 };
 const ADMIN_PIN="";
 const DEMO_MS=24*60*60*1000;
-const GROQ_KEY="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";
-const GROQ_MODEL="llama-3.1-8b-instant";
+/* La clave de IA ya NO está en la app: vive en el servidor intermedio (Cloudflare Worker). Completar IA_URL con la dirección del Worker. */
+const IA_URL="";
 
 firebase.initializeApp(FB);
 const auth=firebase.auth();
@@ -1494,14 +1494,16 @@ Hacelo de forma natural, como al pasar, sin sermones.
 FORMA DE HABLAR: Español rioplatense, palabras simples. Respuestas BREVES: 2 a 3 oraciones máximo porque la persona te escucha por voz. Cálido, cercano, nunca frío ni clínico.
 LÍMITES: Nunca des diagnósticos ni indiques medicamentos específicos. Si hay una emergencia, deciles que llamen al 107 (SAME) o al 911.`;
   const messages=chatHistory.slice(-10).map(m=>({role:m.role==="ai"?"assistant":"user",content:m.content}));
-  const res=await fetch("https://api.groq.com/openai/v1/chat/completions",{
+  if(!IA_URL) return "Estoy en mantenimiento unos minutos. Volvé a intentar más tarde.";
+  let idToken="";
+  try{ idToken=await auth.currentUser.getIdToken(); }catch(e){ return "Necesito que vuelvas a iniciar sesión para poder charlar."; }
+  const res=await fetch(IA_URL,{
     method:"POST",
     headers:{
       "Content-Type":"application/json",
-      "Authorization":"Bearer "+GROQ_KEY
+      "Authorization":"Bearer "+idToken
     },
     body:JSON.stringify({
-      model:GROQ_MODEL,
       max_tokens:200,
       messages:[{role:"system",content:systemPrompt},...messages]
     })
