@@ -1060,6 +1060,8 @@ auth.onAuthStateChanged(async user=>{
     }
     userDoc=(await getDoc(userRef)).data();
     if(userDoc.banned){toast("Cuenta suspendida","err");await auth.signOut();return;}
+    // Último acceso: lo lee el panel de actividad de RavenTechs (no bloquea nada si falla)
+    try{await updateDoc(userRef,{ultimoAcceso:serverTimestamp()});}catch(e){}
     // Cargar compañero y datos
     const compSnap=await getDoc(doc(db,"usuarios",user.uid,"config","companion"));
     if(compSnap.exists){
